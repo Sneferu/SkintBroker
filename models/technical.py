@@ -35,6 +35,27 @@ def _get_top_net(name: str) -> mx.gluon.Block:
         seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
         return seq
 
+    if name == "triplewide":
+        seq = mx.gluon.nn.Sequential()
+        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
+        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
+        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
+        return seq
+
+    if name == "midstack":
+        seq = mx.gluon.nn.Sequential()
+        seq.add(mx.gluon.nn.Dense(60, activation='tanh'))
+        seq.add(mx.gluon.nn.Dense(45, activation='tanh'))
+        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
+        return seq
+
+    if name == "thinstack":
+        seq = mx.gluon.nn.Sequential()
+        seq.add(mx.gluon.nn.Dense(40, activation='tanh'))
+        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
+        seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
+        return seq
+
     if name == "relutivity":
         seq = mx.gluon.nn.Sequential()
         seq.add(mx.gluon.nn.Dense(60, activation='relu'))
@@ -248,6 +269,12 @@ class TechnicalNet(Net):
         name = "technical"
         if self.top_name:
             name += f"-{self.top_name}"
+        if self._has_slab():
+            name += "-slab"
+        if self._has_conv():
+            name += "-conv"
+        if self._has_textcnn():
+            name += "-textcnn"
         if self._has_volume():
             name += "-volume"
         if self._has_macd():
