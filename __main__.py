@@ -208,7 +208,11 @@ def main() -> None:
 
             # Save the model
             model.save(model_cache)
-            record_success(model_cache, model.name, valid_success[-1])
+            if len(valid_success) > 3:
+                success = sum(valid_success[-3:])/3
+            else:
+                success = valid_success[-1]
+            record_success(model_cache, model.name, success)
 
             # Finally, generate the plot
             title = f"Training loss per epoch for {str(args.model)}"

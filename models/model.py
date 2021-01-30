@@ -168,8 +168,6 @@ class SequentialModel:
         batch_size = 50
         valid_batch_count = (450 - (self.window + 10)) // 10
         training_batch_count = 9 * valid_batch_count
-        val_batches = [self.presenters[0].get_validation_batch(batch_size) \
-                       for _ in range(valid_batch_count)]
 
         # First, basic check: is the net even trainable?  If not, just run
         # the validation batch and return it.  Note that we define a special
@@ -182,6 +180,8 @@ class SequentialModel:
             """
 
             # First, run the model on each validation batch
+            val_batches = [self.presenters[0].get_validation_batch(batch_size) \
+                           for _ in range(valid_batch_count)]
             valid_loss, valid_success = 0, 0
             print(f"Validating on {valid_batch_count} batches")
             for data_batch, target_batch in val_batches:
@@ -212,6 +212,10 @@ class SequentialModel:
             print(f"Starting epoch {epoch}...")
             print(f"Training on {training_batch_count} batches")
 
+            # Get a different validation batch each time to minimize
+            # validation anomalies
+            val_batches = [self.presenters[0].get_validation_batch(batch_size) \
+                           for _ in range(valid_batch_count)]
 
             # Train on each batch
             for batch in range(training_batch_count):
