@@ -1,0 +1,268 @@
+# This model represents a concatenation of all technical indicators with
+# various other nets placed on top of them.
+---
+# Start off with net definitions ----------------------------------------------
+
+# Define a net for each indicator
+macd_net: &macd_net
+  type: macd
+  inputs:
+    - <presenter>
+
+volume_net: &volume_net
+  type: volume
+  inputs:
+    - <presenter>
+
+mass_index_net: &mass_index_net
+  type: mass_index
+  inputs:
+    - <presenter>
+
+trix_net: &trix_net
+  type: trix
+  inputs:
+    - <presenter>
+
+vortex_net: &vortex_net
+  type: vortex
+  inputs:
+    - <presenter>
+
+rsi_net: &rsi_net
+  type: rsi
+  inputs:
+    - <presenter>
+
+stochastic_net: &stochastic_net
+  type: stochastic
+  inputs:
+    - <presenter>
+
+# Define a net containing all technical nets
+technical_nets: &nets
+
+  macd: *macd_net
+  volume: *volume_net
+  mass_index: *mass_index_net
+  trix: *trix_net
+  vortex: *vortex_net
+  rsi: *rsi_net
+  stochastic: *stochastic_net
+
+  concat:
+    type: concat
+    params:
+      axis: 1
+    inputs:
+      - macd
+      - volume
+      - mass_index
+      - trix
+      - vortex
+      - rsi
+      - stochastic
+
+# Next, define a standard model -----------------------------------------------
+
+common_params: &common_params
+  window: 45
+  verbose: True
+
+presenter: &presenter
+  !include presenters/intraday-all
+
+provider: &provider
+  !include providers/av
+
+# Basic model for technical indicators
+basic_technical: &basic_technical
+  presenter: *presenter
+  provider: *provider
+  type: sequential
+  output: sentiment
+  loss: gambling
+  params: *common_params
+
+# Finally, define all runnable targets ----------------------------------------
+
+# Basic targets for each indicator
+macd:
+  <<: *basic_technical
+  nets:
+    macd: *macd_net
+
+volume:
+  <<: *basic_technical
+  nets:
+    volume: *volume_net
+
+mass_index:
+  <<: *basic_technical
+  nets:
+    mass_index: *mass_index_net
+
+trix:
+  <<: *basic_technical
+  nets:
+    trix: *trix_net
+
+vortex:
+  <<: *basic_technical
+  nets:
+    vortex: *vortex_net
+
+rsi:
+  <<: *basic_technical
+  nets:
+    rsi: *rsi_net
+
+stochastic:
+  <<: *basic_technical
+  nets:
+    stochastic: *stochastic_net
+
+# A basic net which takes a concatenation of technical indicators as inputs
+# and runs them through a perceptron to output sentiment-style predictions
+perceptron:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        output: sentiment
+
+# Basic nets with varying types of dense net on top of them
+dense60x20:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        sizes:
+          - 60
+          - 20
+        activations:
+          - tanh
+          - tanh
+        output: sentiment
+
+dense_triple:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        sizes:
+          - 20
+          - 20
+          - 20
+        activations:
+          - tanh
+          - tanh
+          - tanh
+        output: sentiment
+
+triplewide:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        sizes:
+          - 30
+          - 30
+          - 30
+        activations:
+          - tanh
+          - tanh
+          - tanh
+        output: sentiment
+
+midstack:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        sizes:
+          - 60
+          - 45
+          - 20
+        activations:
+          - tanh
+          - tanh
+          - tanh
+        output: sentiment
+
+thinstack:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        sizes:
+          - 40
+          - 30
+          - 20
+        activations:
+          - tanh
+          - tanh
+          - tanh
+        output: sentiment
+
+fatstack:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        sizes:
+          - 160
+          - 80
+          - 40
+          - 20
+        activations:
+          - tanh
+          - tanh
+          - tanh
+          - tanh
+        output: sentiment
+
+relutivity:
+  <<: *basic_technical
+  nets:
+    <<: *nets
+    dense:
+      type: dense
+      inputs:
+        - concat
+      params:
+        sizes:
+          - 60
+          - 20
+        activations:
+          - relu
+          - relu
+        output: sentiment

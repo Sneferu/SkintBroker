@@ -1,0 +1,18 @@
+# A target which behaves as if an oracle can just tell the future security
+# price.  Used for comparing model effectiveness.
+target:
+  presenter: !include presenters/intraday-target
+  provider: !include providers/av
+  type: sequential
+  output: sentiment
+  loss: gambling
+  params:
+    window: 45
+    verbose: True
+  nets:
+    target:
+      type: target
+      inputs:
+        - <presenter>
+
+

@@ -9,7 +9,7 @@ from abc import abstractmethod
 from io import StringIO
 import pathlib
 import time
-from typing import Dict
+from typing import Any, Dict
 
 import pandas as pd
 import requests
@@ -68,8 +68,10 @@ class AVDataProvider(DataProvider):
     An implementation of DataProvider which uses the AlphaVantage API.
     """
 
-    def __init__(self, ticker: str, api_key: str, reqs_per_minute: int,
-                 cache: pathlib.Path, local_cache_size: int = 5):
+    def __init__(self, ticker: str, *,
+                 api_key: int = 0, reqs_per_minute: int = 5,
+                 cache: str = "cache", local_cache_size: int = 10,
+                 **kwargs: Dict[str, Any]):
         """
         Init function.  +api_key+ is the AlphaVantage API key needed to
         request data, and +reqs_per_minute+ is the number of requests allowed
@@ -87,7 +89,7 @@ class AVDataProvider(DataProvider):
         self.ticker = ticker
         self.api_key = api_key
         self.reqs_per_minute = reqs_per_minute
-        self.cache = cache
+        self.cache = pathlib.Path(cache)
         self.local_cache_size = local_cache_size
 
         self._calls = []
@@ -95,9 +97,9 @@ class AVDataProvider(DataProvider):
         self._local_cache_history = []
 
         # Ensure the cache is suitable
-        if cache.exists() and not cache.is_dir():
+        if self.cache.exists() and not self.cache.is_dir():
             raise RuntimeError("Cache must be a directory")
-        cache.mkdir(exist_ok=True, parents=True)
+        self.cache.mkdir(exist_ok=True, parents=True)
 
     def _check_local_cache(self, filename: pathlib.Path):
         """

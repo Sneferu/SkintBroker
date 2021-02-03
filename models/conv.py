@@ -20,13 +20,13 @@ class DailyConvolutionalNet(Net):
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, output: str, features: List[str], **kwargs: Dict[str, Any]):
+    def __init__(self, features: List[List[str]], output: str = "sentiment",
+                 **kwargs: Dict[str, Any]) -> None:
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
         self.output = output
-        self.features = features
 
         with self.name_scope():
 
@@ -62,11 +62,14 @@ class DailyConvolutionalNet(Net):
         return output
 
     @property
-    def output_format(self) -> str:
+    def features(self) -> List[str]:
         """
-        The output format of this net
+        A list of features output by this net.
         """
-        return self.output
+        if self.output == "sentiment":
+            return ["up", "down", "side"]
+        else:
+            return ["prediction"]
 
     @property
     def trainable(self) -> bool:
@@ -74,13 +77,3 @@ class DailyConvolutionalNet(Net):
         Whether or not this net is trainable
         """
         return True
-
-    @property
-    def name(self) -> str:
-        """
-        Returns a name for this net for use in storing parameters and metadata.
-        """
-        name = "conv"
-        for feature in self.features:
-            name += f"-{feature}"
-        return f"{name}-{self.output}"

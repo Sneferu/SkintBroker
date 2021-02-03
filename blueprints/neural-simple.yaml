@@ -1,0 +1,140 @@
+# This file contains models for various simple neural nets.  For each, it
+# includes one with technical indicators and one without.
+---
+# Info common to all models ---------------------------------------------------
+common_params: &common_params
+  window: 45
+  verbose: True
+
+presenter_basic: &presenter_basic
+  !include presenters/intraday
+
+presenter_all: &presenter_all
+  !include presenters/intraday-defined
+
+provider: &provider
+  !include providers/av
+
+nn_model: &nn_model
+  provider: *provider
+  type: sequential
+  output: sentiment
+  loss: gambling
+  params: *common_params
+
+nn_model_basic: &nn_model_basic
+  <<: *nn_model
+  presenter: *presenter_basic
+
+nn_model_all: &nn_model_all
+  <<: *nn_model
+  presenter: *presenter_all
+
+# Dense Models ----------------------------------------------------------------
+
+dense_basic:
+  <<: *nn_model_basic
+  nets:
+    dense:
+      type: dense
+      inputs:
+        - <presenter>
+      params:
+        sizes:
+          - 64
+          - 32
+          - 16
+        activations:
+          - tanh
+          - tanh
+          - tanh
+        output: sentiment
+
+dense_all:
+  <<: *nn_model_all
+  nets:
+    dense:
+      type: dense
+      inputs:
+        - <presenter>
+      params:
+        sizes:
+          - 64
+          - 32
+          - 16
+        activations:
+          - tanh
+          - tanh
+          - tanh
+        output: sentiment
+
+
+# Convolutional Models --------------------------------------------------------
+
+conv_basic:
+  <<: *nn_model_basic
+  nets:
+    conv:
+      type: conv
+      inputs:
+        - <presenter>
+      params:
+        output: sentiment
+
+conv_all:
+  <<: *nn_model_all
+  nets:
+    conv:
+      type: conv
+      inputs:
+        - <presenter>
+      params:
+        output: sentiment
+
+
+# TextCNN Models --------------------------------------------------------------
+
+textcnn_basic:
+  <<: *nn_model_basic
+  nets:
+    textcnn:
+      type: textcnn
+      inputs:
+        - <presenter>
+      params:
+        output: sentiment
+
+textcnn_all:
+  <<: *nn_model_all
+  nets:
+    textcnn:
+      type: textcnn
+      inputs:
+        - <presenter>
+      params:
+        output: sentiment
+
+
+# Recurrent Models ------------------------------------------------------------
+
+rnn_basic:
+  <<: *nn_model_basic
+  type: recurrent
+  nets:
+    rnn:
+      type: rnn
+      inputs:
+        - <presenter>
+      params:
+        output: sentiment
+
+rnn_all:
+  <<: *nn_model_all
+  type: recurrent
+  nets:
+    rnn:
+      type: rnn
+      inputs:
+        - <presenter>
+      params:
+        output: sentiment

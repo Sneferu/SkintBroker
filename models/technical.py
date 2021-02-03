@@ -11,310 +11,50 @@ from typing import Any, Dict, List, Optional
 import mxnet as mx
 
 from .model import Net
-from .textcnn import TextCNNNet
-from .conv import DailyConvolutionalNet
 
 
-def _get_top_net(name: str) -> mx.gluon.Block:
+class TechnicalBlock(Net):
     """
-    Returns a top network for handling votes.  +name+ identifies the type.
-    """
-    if name == "dense":
-        return mx.gluon.nn.Dense(20, activation='tanh')
-
-    if name == "dense60x20":
-        seq = mx.gluon.nn.Sequential()
-        seq.add(mx.gluon.nn.Dense(60, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
-        return seq
-
-    if name == "dense-triple":
-        seq = mx.gluon.nn.Sequential()
-        seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
-        return seq
-
-    if name == "triplewide":
-        seq = mx.gluon.nn.Sequential()
-        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
-        return seq
-
-    if name == "midstack":
-        seq = mx.gluon.nn.Sequential()
-        seq.add(mx.gluon.nn.Dense(60, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(45, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
-        return seq
-
-    if name == "thinstack":
-        seq = mx.gluon.nn.Sequential()
-        seq.add(mx.gluon.nn.Dense(40, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(30, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
-        return seq
-
-    if name == "relutivity":
-        seq = mx.gluon.nn.Sequential()
-        seq.add(mx.gluon.nn.Dense(60, activation='relu'))
-        seq.add(mx.gluon.nn.Dense(20, activation='relu'))
-        return seq
-
-    if name == "fatstack":
-        seq = mx.gluon.nn.Sequential()
-        seq.add(mx.gluon.nn.Dense(160, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(80, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(40, activation='tanh'))
-        seq.add(mx.gluon.nn.Dense(20, activation='tanh'))
-        return seq
-
-    raise RuntimeError(f"No block for {name}")
-
-class TechnicalNet(Net):
-    """
-    Implementation of the TechnicalNet block per the mxnet framework.
+    The base technical indicator block.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, output: str, features: List[str], singleton: str = None,
-            top: Optional[str] = None, extras: List[str] = [],
-            **kwargs: Dict[str, Any]):
-        """
-        Init function.
-        """
-        super().__init__(**kwargs)
-        self.output = output
-        self.features = features
-        self.extras = extras
-        self.top_name = top
-        self.singleton = singleton
-
-        if self.singleton and self.output != "sentiment":
-            raise RuntimeError("Singleton TI's can only be used with sentiment"
-                               "-style outputs")
-
-        with self.name_scope():
-
-            # First, set up the technical feature blocks
-            self.subblocks = []
-            if self._has_macd():
-                self.subblocks.append(MACDBlock(features))
-            if self._has_volume():
-                self.subblocks.append(VolumeBlock(features))
-            if self._has_mass_index():
-                self.subblocks.append(MassIndexBlock(features))
-            if self._has_trix15():
-                self.subblocks.append(TRIXBlock(features, 15))
-            if self._has_vortex():
-                self.subblocks.append(VortexBlock(features))
-            if self._has_rsi():
-                self.subblocks.append(RSIBlock(features))
-            if self._has_stochastic():
-                self.subblocks.append(StochasticOscillatorBlock(features))
-            if self._has_slab():
-                self.subblocks.append(ExtraBlock("slab", features))
-            if self._has_conv():
-                self.subblocks.append(ExtraBlock("conv", features))
-            if self._has_textcnn():
-                self.subblocks.append(ExtraBlock("textcnn", features))
-            if self._has_target():
-                self.subblocks.append(TargetBlock(features))
-
-            for block in self.subblocks:
-                self.register_child(block)
-
-            # Next, set up the vote system
-            if not self.singleton:
-                if self.top_name:
-                    self.top_layer = _get_top_net(self.top_name)
-                if self.output == "sentiment":
-                    self.collector = mx.gluon.nn.Dense(3)
-                else:
-                    self.collector = mx.gluon.nn.Dense(1)
-
-    def _has_macd(self) -> bool:
-        """
-        Are MACD features present
-        """
-        if self.singleton and self.singleton != 'macd':
-            return False
-        return 'macd' in self.features and 'macd_signal' in self.features
-
-    def _has_volume(self) -> bool:
-        """
-        Are volume features present
-        """
-        if self.singleton and self.singleton != 'volume':
-            return False
-        return 'volume' in self.features and 'change' in self.features
-
-    def _has_mass_index(self) -> bool:
-        """
-        Are mass index features present
-        """
-        if self.singleton and self.singleton != 'mass_index':
-            return False
-        return 'mass_index' in self.features and 'change' in self.features
-
-    def _has_trix15(self) -> bool:
-        """
-        Are 15 minute TRIX features present
-        """
-        if self.singleton and self.singleton != 'trix15':
-            return False
-        return 'trix15' in self.features
-
-    def _has_vortex(self) -> bool:
-        """
-        Are Vortex Indicator features present
-        """
-        if self.singleton and self.singleton != 'vortex':
-            return False
-        return 'vortex+' in self.features and 'vortex-' in self.features
-
-    def _has_rsi(self) -> bool:
-        """
-        Are RSI features present
-        """
-        if self.singleton and self.singleton != 'rsi':
-            return False
-        return 'rsi' in self.features
-
-    def _has_stochastic(self) -> bool:
-        """
-        Are RSI features present
-        """
-        if self.singleton and self.singleton != 'stochastic':
-            return False
-        return '%D' in self.features and '%K' in self.features
-
-    def _has_slab(self) -> bool:
-        """
-        Is the Slab multi-layer dense subblock requested
-        """
-        if self.singleton and self.singleton != 'slab':
-            return False
-        return 'slab' in self.extras
-
-    def _has_conv(self) -> bool:
-        """
-        Is a convolutional subblock requested
-        """
-        if self.singleton and self.singleton != 'conv':
-            return False
-        return 'conv' in self.extras
-
-    def _has_textcnn(self) -> bool:
-        """
-        Is a TextCNN subblock requested
-        """
-        if self.singleton and self.singleton != 'textcnn':
-            return False
-        return 'textcnn' in self.extras
-
-    def _has_target(self) -> bool:
-        """
-        Is a Target subblock requested
-        """
-        if self.singleton and self.singleton != 'target':
-            return False
-        return 'target' in self.features
-
-    def forward(self, inputs):
-        """
-        Returns the outputs of the net.
-        """
-        # First, gather the votes of each technical indicator
-        votes = [subblock(inputs) for subblock in self.subblocks]
-        if self.singleton:
-            # Simply sum and softmax all votes
-            output = mx.nd.concat(*[v.reshape(*v.shape, 1) for v in votes],
-                                  dim=2)
-            output = mx.nd.sum(output, axis=2)
-            return mx.ndarray.softmax(output, axis=1)
-        output = mx.nd.concat(*votes, dim=1)
-
-        # Next, collect votes and return the prediction
-        if self.top_name:
-            output = self.top_layer(output)
-        output = self.collector(output)
-        if self.output == "sentiment":
-            output = mx.ndarray.softmax(output, axis=1)
-        return output
-
     @property
-    def output_format(self) -> str:
+    def features(self) -> List[str]:
         """
-        The output format of this net
+        A list of features output by this net.  Note that all technical
+        indicator blocks are sentiment-style.
         """
-        return self.output
+        return ["up", "down", "side"]
 
     @property
     def trainable(self) -> bool:
         """
-        Whether or not this net is trainable
+        Whether or not this net is trainable.  Technical indicators are not.
         """
-        if not self.singleton or self.singleton in ['conv', 'slab', 'textcnn']:
-            return True
         return False
 
-    @property
-    def name(self) -> str:
-        """
-        Returns a name for this net for use in storing parameters and metadata.
-        """
-        name = "technical"
-        if self.top_name:
-            name += f"-{self.top_name}"
-        if self._has_slab():
-            name += "-slab"
-        if self._has_conv():
-            name += "-conv"
-        if self._has_textcnn():
-            name += "-textcnn"
-        if self._has_volume():
-            name += "-volume"
-        if self._has_macd():
-            name += "-macd"
-        if self._has_mass_index():
-            name += "-mass_index"
-        if self._has_trix15():
-            name += "-trix15"
-        if self._has_vortex():
-            name += "-vortex"
-        if self._has_rsi():
-            name += "-rsi"
-        if self._has_stochastic():
-            name += "-stochastic"
-        if self._has_target():
-            name += "-target"
-        return f"{name}-{self.output}"
 
-
-class MACDBlock(mx.gluon.Block):
+class MACDBlock(TechnicalBlock):
     """
     Implementation of the MACD block per the mxnet framework.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], threshold: float = 0.001,
+    def __init__(self, features: List[List[str]], threshold: float = 0.001,
                  **kwargs: Dict[str, Any]):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slices contain MACD and its signal
-        if not 'macd' in features or not 'macd_signal' in features:
+        if not 'macd' in features[0] or not 'macd_signal' in features[0]:
             raise RuntimeError("Block requires both MACD and MACD Signal features")
-        self.macd_index = features.index('macd')
-        self.signal_index = features.index('macd_signal')
+        self.macd_index = features[0].index('macd')
+        self.signal_index = features[0].index('macd_signal')
         self.threshold = threshold
 
     def forward(self, inputs):
@@ -339,27 +79,25 @@ class MACDBlock(mx.gluon.Block):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
-class VolumeBlock(mx.gluon.Block):
+class VolumeBlock(TechnicalBlock):
     """
     Implementation of the volume indicator block per the mxnet framework.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], threshold: float = 1.8,
+    def __init__(self, features: List[List[str]], threshold: float = 1.8,
                  **kwargs: Dict[str, Any]):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slices contain the volume and change
-        if not 'volume' in features or not 'change' in features:
+        if not 'volume' in features[0] or not 'change' in features[0]:
             raise RuntimeError("Block requires the volume and change features")
-        self.volume_index = features.index('volume')
-        self.change_index = features.index('change')
+        self.volume_index = features[0].index('volume')
+        self.change_index = features[0].index('change')
         self.threshold = threshold
 
     def forward(self, inputs):
@@ -387,26 +125,24 @@ class VolumeBlock(mx.gluon.Block):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
-class MassIndexBlock(mx.gluon.Block):
+class MassIndexBlock(TechnicalBlock):
     """
     Implementation of the mass index block per the mxnet framework.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], **kwargs: Dict[str, Any]):
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slices contain the Mass Index and Change
-        if not 'mass_index' in features or not 'change' in features:
+        if not 'mass_index' in features[0] or not 'change' in features[0]:
             raise RuntimeError("Block requires the Mass Index and Change features")
-        self.mass_index = features.index('mass_index')
-        self.change_index = features.index('change')
+        self.mass_index = features[0].index('mass_index')
+        self.change_index = features[0].index('change')
 
     def forward(self, inputs):
         """
@@ -434,26 +170,24 @@ class MassIndexBlock(mx.gluon.Block):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
-class TRIXBlock(mx.gluon.Block):
+class TRIXBlock(TechnicalBlock):
     """
     Implementation of the TRIX indicator block per the mxnet framework.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], period: int,
+    def __init__(self, features: List[List[str]], period: int = 15,
                  threshold: float = 0.0001, **kwargs: Dict[str, Any]):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slices contain the TRIX indicator
-        if not f"trix{period}" in features:
+        if not f"trix{period}" in features[0]:
             raise RuntimeError(f"Block requires the trix{period} feature")
-        self.trix_index = features.index(f"trix{period}")
+        self.trix_index = features[0].index(f"trix{period}")
         self.threshold = threshold
 
     def forward(self, inputs):
@@ -475,26 +209,24 @@ class TRIXBlock(mx.gluon.Block):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
-class VortexBlock(mx.gluon.Block):
+class VortexBlock(TechnicalBlock):
     """
     Implementation of the Vortex Indicator block per the mxnet framework.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], **kwargs: Dict[str, Any]):
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slices contain the V+ and V- signals
-        if not 'vortex+' in features or not 'vortex-' in features:
+        if not 'vortex+' in features[0] or not 'vortex-' in features[0]:
             raise RuntimeError("Block requires both Vortex + and - features")
-        self.vortex_p_index = features.index('vortex+')
-        self.vortex_n_index = features.index('vortex-')
+        self.vortex_p_index = features[0].index('vortex+')
+        self.vortex_n_index = features[0].index('vortex-')
 
     def forward(self, inputs):
         """
@@ -515,26 +247,24 @@ class VortexBlock(mx.gluon.Block):
         return mx.nd.concat(cross_up, cross_down, side_sent, dim=1)
 
 
-class RSIBlock(mx.gluon.Block):
+class RSIBlock(TechnicalBlock):
     """
     Implementation of the RSI indicator block per the mxnet framework.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], threshold: float = 1.8,
+    def __init__(self, features: List[List[str]], threshold: float = 1.8,
                  **kwargs: Dict[str, Any]):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slice contains the RSI
-        if not 'rsi' in features:
+        if not 'rsi' in features[0]:
             raise RuntimeError("Block requires the RSI feature")
-        self.rsi_index = features.index('rsi')
+        self.rsi_index = features[0].index('rsi')
         self.threshold = threshold
 
     def forward(self, inputs):
@@ -562,26 +292,24 @@ class RSIBlock(mx.gluon.Block):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
-class StochasticOscillatorBlock(mx.gluon.Block):
+class StochasticOscillatorBlock(TechnicalBlock):
     """
     Implementation of the StochasticOscillator block per the mxnet framework.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], **kwargs: Dict[str, Any]):
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slices contain %K and %D
-        if not '%K' in features or not '%D' in features:
+        if not '%K' in features[0] or not '%D' in features[0]:
             raise RuntimeError("Block requires both %K and %D features")
-        self.pK_index = features.index('%K')
-        self.pD_index = features.index('%D')
+        self.pK_index = features[0].index('%K')
+        self.pD_index = features[0].index('%D')
 
     def forward(self, inputs):
         """
@@ -603,59 +331,11 @@ class StochasticOscillatorBlock(mx.gluon.Block):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
-class ExtraBlock(mx.gluon.Block):
-    """
-    Block for including other nets.  Responsible for extracting useful
-    features from the master input and feeding them into the wrapped net.
-    Note that this block only outputs sentiment-style predictions.
-    """
-    # Only one public method is needed
-    # pylint: disable=too-few-public-methods
-
-    def __init__(self, net: str, features: List[str], **kwargs: Dict[str, Any]):
-        """
-        Init function.
-        """
-        super().__init__(**kwargs)
-
-        # Gather features
-        self.features = []
-        for feature in ["high", "low", "change", "open", "volume", "time"]:
-            if feature in features:
-                self.features.append(features.index(feature))
-
-        with self.name_scope():
-            if net == "conv":
-                self.net = DailyConvolutionalNet("sentiment", self.features)
-            elif net == "textcnn":
-                self.net = TextCNNNet("sentiment", self.features)
-            elif net == "slab":
-                self.net = mx.gluon.nn.Sequential()
-                self.net.add(mx.gluon.nn.Dense(180, activation='tanh'))
-                self.net.add(mx.gluon.nn.Dense(60, activation='tanh'))
-                self.net.add(mx.gluon.nn.Dense(20, activation='tanh'))
-                self.net.add(mx.gluon.nn.Dense(3, activation='tanh'))
-            else:
-                raise RuntimeError(f"Couldn't identify net '{net}'")
-
-    def forward(self, inputs):
-        """
-        Returns the outputs of the net.
-        """
-        # Only include the standard features
-        standard_inputs = inputs[:, :, self.features]
-
-        # Run the model
-        return self.net(standard_inputs)
-
-
-class TargetBlock(mx.gluon.Block):
+class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes
     that a magical oracle provides 100% accurate predictions, and simply
     selects market sentiment using them.
-
-    Note that this block only outputs sentiment-style predictions.
     """
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
@@ -665,12 +345,12 @@ class TargetBlock(mx.gluon.Block):
         """
         Init function.
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
 
         # Determine which data slice contains the RSI
-        if not 'target' in features:
+        if not 'target' in features[0]:
             raise RuntimeError("Block requires the Target feature")
-        self.target_index = features.index('target')
+        self.target_index = features[0].index('target')
 
     def forward(self, inputs):
         """

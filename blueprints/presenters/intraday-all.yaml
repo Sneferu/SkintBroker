@@ -1,0 +1,23 @@
+# Default initialization for an intraday data presenter with all features
+# except target enabled
+---
+type: intraday
+params:
+  window: 45
+  valid_seed: 0
+  lookahead: 10
+  normalize: true
+  features:
+    high: true
+    low: true
+    change: true
+    open: true
+    volume: true
+    time: true
+    macd: true
+    mass_index: true
+    trix15: true
+    vortex: true
+    rsi: true
+    stochastic: true
+    target: false

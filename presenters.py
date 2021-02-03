@@ -6,7 +6,7 @@ is responsible for presenting data in the form of mxnet tensors.  Each
 implementation presents a different subset of the available data, allowing
 different models to make use of similar data.
 """
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from abc import abstractmethod
 
@@ -63,46 +63,39 @@ class IntradayPresenter:
     # All it does is load data - no other calls necessary
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, provider: providers.DataProvider, window: int,
+    def __init__(self, provider: providers.DataProvider, *, window: int = 45,
+                 valid_seed: int = 0, lookahead: int = 10,
+                 normalize: bool = True, features: Dict[str, bool] = {},
                  **kwargs):
         """
-        Init function.  Takes a +provider+ from which it extracts data,
-        along with a +window+ size for samples.
-
-        +valid_seed+ is a integer in [0, 10), which provides ten
-                     different sets of days for use with validation.
+        Init function.  Takes a +provider+ from which it extracts data and
+        a variety of other arguments.  See info files for examples.
         """
         # pylint: disable=too-many-instance-attributes
 
         # Store basic setup parameters
         self.provider = provider
-        self.window = window
-        self._valid_seed = kwargs.get("valid_seed", 0) % 10
-        self._lookahead = kwargs.get("lookahead", 10)
-        self._normalize = kwargs.get("normalize", True)
-        self._features = []
+        self._window = window
+        self._valid_seed = valid_seed
+        self._lookahead = lookahead
+        self._normalize = normalize
+        self._features = [feat for feat in features if features[feat]]
+        self._outputs = []
 
-        # Collect the set of default-positive features
-        positive_features = ["high", "low", "change", "open", "volume", "time"]
-        for feature in positive_features:
-            if kwargs.get(feature, True):
-                self._features.append(feature)
+        # Collect and decide features
+        for feature in self._features:
+            # First handle special features
+            if feature == 'macd':
+                self._outputs.append('macd_signal')
+            if feature == 'vortex':
+                self._outputs.extend(['vortex+', 'vortex-'])
+                continue
+            if feature == 'stochastic':
+                self._outputs.extend(['%K', '%D'])
+                continue
 
-        # Collect the set of default-negative features
-        # TODO add these
-        negative_features = ['macd', 'mass_index', 'trix15', 'vortex', 'rsi',
-                             'stochastic', 'target']
-        for feature in negative_features:
-            if kwargs.get(feature, False):
-                if feature == 'vortex':
-                    self._features.extend(['vortex+', 'vortex-'])
-                    continue
-                if feature == 'stochastic':
-                    self._features.extend(['%K', '%D'])
-                    continue
-                if feature == 'macd':
-                    self._features.append('macd_signal')
-                self._features.append(feature)
+            # Then add all others
+            self._outputs.append(feature)
 
         # Decide range of possible dates in advance
         self._first = provider.first()
@@ -137,7 +130,7 @@ class IntradayPresenter:
         """
         Returns the data associated with a single +timestamp+ in mxnet form
         """
-        start_time = timestamp - pd.to_timedelta(self.window, unit='min')
+        start_time = timestamp - pd.to_timedelta(self._window, unit='min')
         return self._get_data(start_time, False)[0]
 
     @abstractmethod
@@ -163,7 +156,7 @@ class IntradayPresenter:
         # Check if the sample has already been cached.
         day = time.floor('D')
         start_index = (time.hour - 9) * 60 + (time.minute - 30)
-        end_index = start_index + self.window
+        end_index = start_index + self._window
         if validation and day in self._val_cache:
             data, target = self._val_cache[day]
             return data[start_index: end_index], target[start_index: end_index]
@@ -191,7 +184,7 @@ class IntradayPresenter:
         # over-complicated method guarantees that they remain in the order
         # prescribed by the feature list.
         datas = []
-        for feat in self._features:
+        for feat in self._outputs:
             if feat == "high":
                 datas.append(_to_intraday_high(date, self.provider,
                                                normalize=self._normalize))
@@ -214,7 +207,7 @@ class IntradayPresenter:
                 # For MACD, include both MACD and its signal
                 macd, macd_signal = _to_intraday_macd(date, self.provider,
                                                       normalize=self._normalize)
-                datas.extend([macd, macd_signal])
+                datas.extend([macd_signal, macd])
             elif feat == "mass_index":
                 datas.append(_to_intraday_mass_index(date, self.provider))
             elif feat == "trix15":
@@ -277,7 +270,7 @@ class IntradayPresenter:
                 return False
             if (time.hour * 60 + time.minute) < 9 * 60 + 30:
                 return False
-            if (time.hour * 60 + time.minute + self.window) > 15 * 60 - self._lookahead:
+            if (time.hour * 60 + time.minute + self._window) > 15 * 60 - self._lookahead:
                 return False
 
             # Check aginst holidays.  Note that for the sake of sanity, we
@@ -318,7 +311,7 @@ class IntradayPresenter:
         Returns a list of data features in the same order as presented in the
         frames.
         """
-        return self._features
+        return self._outputs
 
 
 def _get_intraday_data(date: pd.Timestamp, provider: providers.DataProvider) \
@@ -535,7 +528,7 @@ def _to_intraday_stochastic(date: pd.Timestamp, provider: providers.DataProvider
 
     # Return them
     return nd.array(pK.values, utils.try_gpu(0)), \
-           nd.array(pD, utils.try_gpu(0))
+           nd.array(pD.values, utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:

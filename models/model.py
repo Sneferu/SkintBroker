@@ -1,6 +1,6 @@
 # TODO docstring
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from abc import abstractmethod
 import pathlib
@@ -19,11 +19,23 @@ class Net(mx.gluon.Block):
     Class representing an mxnet-style block, but with added properties.
     """
 
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]) \
+            -> None:
+        """
+        Init function.
+
+        +features+ is a list of input features for each input accepted.
+        +inputs+ is a list of input array types accepted by the net.
+        +output+ is a list of output items
+        """
+        super().__init__(**kwargs)
+        self._input_features = features
+
     @property
     @abstractmethod
-    def output_format(self) -> str:
+    def features(self) -> List[str]:
         """
-        The output format of this net
+        A list of features output by this net.
         """
 
     @property
@@ -33,12 +45,11 @@ class Net(mx.gluon.Block):
         Whether or not this net is trainable
         """
 
-    @property
-    @abstractmethod
-    def name(self) -> str:
+    def begin_state(self, **kwargs: Dict[str, Any]) -> Any:
         """
-        Returns a name for this net for use in storing parameters and metadata.
+        Performs state initialization.
         """
+        return None
 
 
 class Model:
@@ -73,11 +84,10 @@ class Model:
         Makes a prediction for a certain +time+.
         """
 
-    @property
     @abstractmethod
-    def name(self) -> str:
+    def output_type(self) -> str:
         """
-        Returns a name for this model for use in storing  metadata.
+        The output produced by this model.
         """
 
 
@@ -88,24 +98,28 @@ class SequentialModel:
     recursive nets.
     """
 
-    def __init__(self, net: Net,
-                 pres: List[presenters.DataPresenter], *,
-                 window: int = 45, verbose: bool = False,
+    def __init__(self, net: Net, pres: List[presenters.DataPresenter],
+                 name: str, *, window: int = 45, verbose: bool = False,
                  loss=mx.gluon.loss.L2Loss()) -> None:
         """
         Initialization function.
         Ensures that this object gets an mxnet block +net+ and a set of data
         presenters +pres+ in decreasing priority in frames of size +window+.
         The +loss+ parameter allows selection of a training loss (default L2).
-        The +verbose+ flag activates pseudo-debug printing.
+        The +verbose+ flag activates pseudo-debug printing.  The +name+
+        parameter uniquely identifies the model for saving/loading.
         """
         self.net = net
         self.presenters = pres
+        self.name = name
         self.window = window
         self.loss = loss
         self.verbose = verbose
 
-        self._success_loss = find_loss("gambling", net.output)
+        self._output_type = "prediction" if net.features[0] == "prediction" \
+                            else "sentiment"
+
+        self._success_loss = find_loss("gambling", self._output_type)
 
         # Ensure there is at least one presenter
         if not presenters:
@@ -121,21 +135,21 @@ class SequentialModel:
                 is set, else it will throw an exception.
         +random_init+: Whether or not to ramdomly initialize parameters.
         """
-        if save and save.exists():
-            self.net.load_parameters(str(save/self.net.name),
+        if save and (save/self.name).exists():
+            self.net.load_parameters(str(save/self.name),
                                      ctx=utils.try_gpu(0))
         elif not save or random_init:
             self.net.collect_params().initialize(mx.init.Xavier(),
                                                  ctx=utils.try_gpu(0))
         else:
-            raise RuntimeError(f"Couldn't load file {save}")
+            raise RuntimeError(f"Couldn't load file {save/self.name}")
 
     def save(self, save: pathlib.Path):
         """
         Saves parameters to a file in the +save+ directory.
         """
         save.mkdir(exist_ok=True, parents=True)
-        save_file = save/self.net.name
+        save_file = save/self.name
         self.net.save_parameters(str(save_file))
 
     def train(self, epochs: int) -> Tuple[List[float], List[float], List[float]]:
@@ -246,7 +260,7 @@ class SequentialModel:
         """
         # First initialize the model.  Note that the hidden item may be None.
         # pylint: disable=assignment-from-none
-        hidden = self._initialize_net(1)
+        self._initialize_net(1)
 
         # Next, get the data
         for presenter in self.presenters:
@@ -264,21 +278,21 @@ class SequentialModel:
 
         # Run the model and show outputs
         print(f"Running prediction for {time}...")
-        output, _ = self._iterate_net(self._format_input(input_array), hidden)
+        output = self._iterate_net(self._format_input(input_array))
         print("Done")
 
         # Generate result dataframe
         results = pd.DataFrame()
         results['time'] = [time]
 
-        if self.net.output_format == "sentiment":
+        if self._output_type == "sentiment":
             results['up'] = [output.asnumpy()[:, 0]]
             results['down'] = [output.asnumpy()[:, 1]]
             results['side'] = [output.asnumpy()[:, 2]]
             results = results.set_index('time')
             results['open'] = [input_frame.open]
 
-        elif self.net.output_format == "prediction":
+        elif self._output_type == "prediction":
             results['output'] = [output.asnumpy().reshape(-1)[-1]]
             results = results.set_index('time')
             results['open'] = [input_frame.open]
@@ -286,29 +300,24 @@ class SequentialModel:
 
         return results
 
-    @property
-    def name(self) -> str:
+    def output_type(self) -> str:
         """
-        Returns a name for this model for use in storing  metadata.
+        The output produced by this model.
         """
-        return  self.net.name
+        return self._output_type
 
     def _initialize_net(self, batch_size: int):
         """
         Initialize the net, returning any hidden state.
         """
-        # Designed to be heritable
-        # pylint: disable=unused-argument,no-self-use
-        return None
+        return self.net.begin_state(func=mx.nd.zeros, batch_size=batch_size,
+                                    ctx=utils.try_gpu(0))
 
-    def _iterate_net(self, data, hidden):
+    def _iterate_net(self, data):
         """
-        Runs the net using data and an optional hidden state.  Returns the
-        output and a new hidden state
+        Runs the net.
         """
-        if hidden:
-            return self.net(data, hidden)
-        return self.net(data), None
+        return self.net(data)
 
     def _evaluate(self, data: mx.nd.NDArray, target: mx.nd.NDArray,
                   trainer: Optional[mx.gluon.Trainer] = None) -> float:
@@ -335,7 +344,7 @@ class SequentialModel:
 
         # Run the model and evaluate loss
         with mx.autograd.record():
-            output, hidden = self._iterate_net(data, hidden)
+            output = self._iterate_net(data)
             # For recurrent models, only train on the last output
             out = output[-1] if len(output.shape) == 3 else output
             i_loss = self.loss(out, target[:, -1, :])
@@ -367,13 +376,6 @@ class RecurrentModel(SequentialModel):
     Class implementing functions associated with training and using a
     recursive neural net.
     """
-
-    def _initialize_net(self, batch_size: int):
-        """
-        Initialize the net, returning any hidden state.
-        """
-        return self.net.begin_state(func=mx.nd.zeros, batch_size=batch_size,
-                                    ctx=utils.try_gpu(0))
 
     def _format_input(self, array):
         """

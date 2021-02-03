@@ -17,20 +17,19 @@ class DailyRecurrentNet(Net):
     Implementation of the DailyRecurrentNet block per the mxnet framework.
     """
 
-    def __init__(self, output: str, features: List[str], num_hidden: int = 64,
-                 num_layers: int = 1, dropout: int = 0.1, **kwargs: Dict[str, Any]):
+    def __init__(self, features: List[List[str]], output: str = "sentiment",
+                 num_hidden: int = 64, num_layers: int = 1, dropout: int = 0.1,
+                 **kwargs: Dict[str, Any]) -> None:
         """
         Init function.
 
         +output+: The type of output tensor
         +num_hidden+: Number of nodes in hidden layer (default 256)
         +num_layers+: Number of recurrent layers (default 1)
-        +activation+: Activation function (tanh or relu, default relu)
         +dropout+: Training dropout coefficient
         """
-        super().__init__(**kwargs)
+        super().__init__(features, **kwargs)
         self.output = output
-        self.features = features
         self.num_hidden = num_hidden
         self.num_layers = num_layers
         with self.name_scope():
@@ -66,18 +65,21 @@ class DailyRecurrentNet(Net):
 
         return output, hidden
 
-    def begin_state(self, *args, **kwargs):
+    def begin_state(self, *args, **kwargs) -> List[Any]:
         """
         Get beginning state.
         """
         return self.rnn.begin_state(*args, **kwargs)
 
     @property
-    def output_format(self) -> str:
+    def features(self) -> List[str]:
         """
-        The output format of this net
+        A list of features output by this net.
         """
-        return self.output
+        if self.output == "sentiment":
+            return ["up", "down", "side"]
+        else:
+            return ["prediction"]
 
     @property
     def trainable(self) -> bool:
@@ -85,13 +87,3 @@ class DailyRecurrentNet(Net):
         Whether or not this net is trainable
         """
         return True
-
-    @property
-    def name(self) -> str:
-        """
-        Returns a name for this net for use in storing parameters and metadata.
-        """
-        name = f"rnn-{self.num_hidden}-{self.num_layers}"
-        for feature in self.features:
-            name += f"-{feature}"
-        return f"{name}-{self.output}"
