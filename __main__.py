@@ -26,7 +26,6 @@ def record_success(cache: pathlib.Path, name: str, success: float) -> None:
     storage.loc[name] = success
     storage.to_csv(cache/"success.csv", index_label='model')
 
-
 def get_success_record(cache: pathlib.Path) -> pd.Series():
     """
     Gets the most recent success record in a +cache+ directory.

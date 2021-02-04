@@ -1,4 +1,3 @@
-# TODO docstring
 
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -126,7 +125,7 @@ class SequentialModel:
             raise RuntimeError("At least one data presenter must be given")
 
     def initialize(self, save: Optional[pathlib.Path] = None,
-                   random_init: bool = True) -> None:
+                   random_init: bool = False) -> None:
         """
         Initializes parameters.  Searches for them in a cache file, or
         initializes them randomly.
@@ -135,12 +134,12 @@ class SequentialModel:
                 is set, else it will throw an exception.
         +random_init+: Whether or not to ramdomly initialize parameters.
         """
-        if save and (save/self.name).exists():
-            self.net.load_parameters(str(save/self.name),
-                                     ctx=utils.try_gpu(0))
-        elif not save or random_init:
+        if not save or random_init:
             self.net.collect_params().initialize(mx.init.Xavier(),
                                                  ctx=utils.try_gpu(0))
+        elif save and (save/self.name).exists():
+            self.net.load_parameters(str(save/self.name),
+                                     ctx=utils.try_gpu(0))
         else:
             raise RuntimeError(f"Couldn't load file {save/self.name}")
 
