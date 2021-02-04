@@ -14,6 +14,11 @@ volume_net: &volume_net
   inputs:
     - <presenter>
 
+momentum_net: &momentum_net
+  type: momentum
+  inputs:
+    - <presenter>
+
 mass_index_net: &mass_index_net
   type: mass_index
   inputs:
@@ -44,6 +49,7 @@ technical_nets: &nets
 
   macd: *macd_net
   volume: *volume_net
+  momentum: *momentum_net
   mass_index: *mass_index_net
   trix: *trix_net
   vortex: *vortex_net
@@ -96,6 +102,11 @@ volume:
   <<: *basic_technical
   nets:
     volume: *volume_net
+
+momentum:
+  <<: *basic_technical
+  nets:
+    volume: *momentum_net
 
 mass_index:
   <<: *basic_technical

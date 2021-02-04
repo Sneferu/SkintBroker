@@ -125,6 +125,44 @@ class VolumeBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class MomentumBlock(TechnicalBlock):
+    """
+    Implementation of the Momentum block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], threshold: float = 0.001,
+                 **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        # Determine which data slices contain %K and %D
+        if not 'open' in features[0]:
+            raise RuntimeError("Block requires Open features")
+        self.open_index = features[0].index('open')
+        self.threshold = threshold
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # Find out which way the stock is moving
+        start = inputs[:, -40, self.open_index]
+        mid = inputs[:, -20, self.open_index]
+        end = inputs[:, -1, self.open_index]
+
+        # If the motion is consistent, assume it will continue.  Else, don't
+        # assume.
+        t = self.threshold
+        up_sent = ((start < (mid - t)) * (mid < (end - t))).reshape(-1, 1)
+        down_sent = ((start > (mid + t)) * (mid > (end + t))).reshape(-1, 1)
+        side_sent = 1 - (up_sent + down_sent)
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class MassIndexBlock(TechnicalBlock):
     """
     Implementation of the mass index block per the mxnet framework.

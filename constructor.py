@@ -20,6 +20,7 @@ net_types = {
         "dense": models.DenseNet,
         "macd": models.technical.MACDBlock,
         "volume": models.technical.VolumeBlock,
+        "momentum": models.technical.MomentumBlock,
         "mass_index": models.technical.MassIndexBlock,
         "trix": models.technical.TRIXBlock,
         "vortex": models.technical.VortexBlock,
