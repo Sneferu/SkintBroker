@@ -7,7 +7,7 @@ structured command line interface.
 """
 
 
-from typing import List
+from typing import Any, Dict, List
 
 import argparse
 import os
@@ -39,6 +39,12 @@ def get_success_record(cache: pathlib.Path) -> pd.Series():
         storage = pd.read_csv(storage, index_col=0)
     return storage
 
+def parse_input(args) -> Dict[str, Any]:
+    """
+    Returns the dictionary from an info file based on +args+.
+    """
+    info_dir = pathlib.Path(os.path.dirname(os.path.realpath(__file__)))/"blueprints"
+    return parser.parse_file(info_dir/f"{args.info_file}.yaml")[args.item]
 
 def main() -> None:
     """
@@ -78,12 +84,10 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
-    # Parse the input file
-    info_dir = pathlib.Path(os.path.dirname(os.path.realpath(__file__)))/"blueprints"
-    item_info = parser.parse_file(info_dir/f"{args.info_file}.yaml")[args.item]
-
     # Base the next decision on the command given
     if args.command == 'data':
+        # Parse info file and generate the provider
+        item_info = parse_input(args)
         provider = constructor.build_provider(args.ticker, item_info)
         if args.subcommand == 'cache':
 
@@ -111,8 +115,10 @@ def main() -> None:
                 liveplot.update()
 
     elif args.command == 'model':
-        model_cache = args.cache_dir/args.ticker/"models"
+        # Parse info file and generate the model
+        item_info = parse_input(args)
         model = constructor.build_model(args.ticker, args.item, item_info)
+        model_cache = args.cache_dir/args.ticker/"models"
 
         if args.subcommand == 'train':
             model.initialize(save=model_cache, random_init=args.reinit)
@@ -211,8 +217,9 @@ def main() -> None:
                 graphics.sleep(30)
 
     elif args.command == 'compare':
-        # TODO show a comparison of existing models
-        pass
+        model_cache = args.cache_dir/args.ticker/"models"
+        success_rates = get_success_record(model_cache)
+        print(success_rates.sort_values(by="success"))
 
 if __name__ == "__main__":
     main()
