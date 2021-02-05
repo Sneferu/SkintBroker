@@ -44,6 +44,11 @@ stochastic_net: &stochastic_net
   inputs:
     - <presenter>
 
+williams_net: &williams_net
+  type: williams
+  inputs:
+    - <presenter>
+
 # Define a net containing all technical nets
 technical_nets: &nets
 
@@ -55,6 +60,7 @@ technical_nets: &nets
   vortex: *vortex_net
   rsi: *rsi_net
   stochastic: *stochastic_net
+  williams: *williams_net
 
   concat:
     type: concat
@@ -63,11 +69,13 @@ technical_nets: &nets
     inputs:
       - macd
       - volume
+      - momentum
       - mass_index
       - trix
       - vortex
       - rsi
       - stochastic
+      - williams
 
 # Next, define a standard model -----------------------------------------------
 
@@ -132,6 +140,11 @@ stochastic:
   <<: *basic_technical
   nets:
     stochastic: *stochastic_net
+
+williams:
+  <<: *basic_technical
+  nets:
+    williams: *williams_net
 
 # A basic net which takes a concatenation of technical indicators as inputs
 # and runs them through a perceptron to output sentiment-style predictions

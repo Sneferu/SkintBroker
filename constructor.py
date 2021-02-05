@@ -26,6 +26,7 @@ net_types = {
         "vortex": models.technical.VortexBlock,
         "rsi": models.technical.RSIBlock,
         "stochastic": models.technical.StochasticOscillatorBlock,
+        "williams": models.technical.WilliamsBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

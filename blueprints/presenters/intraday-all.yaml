@@ -20,4 +20,5 @@ params:
     vortex: true
     rsi: true
     stochastic: true
+    williams: true
     target: false

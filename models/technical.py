@@ -369,6 +369,40 @@ class StochasticOscillatorBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class WilliamsBlock(TechnicalBlock):
+    """
+    Implementation of the Willams %R indicator block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], threshold: float = 1.8,
+                 **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not '%R' in features[0]:
+            raise RuntimeError("Block requires the %R feature")
+        self.pR_index = features[0].index('%R')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the %R
+        pR = inputs[:, :, self.pR_index]
+
+        # Next, look for the overbought/oversold indicators
+        up_sent = ((pR[:, -6]  == -1.0) * (pR[:, -1] > -.95)).reshape(-1, 1)
+        down_sent = ((pR[:, -6] == 0) * (pR[:, -1] < -.05)).reshape(-1, 1)
+        side_sent = 1 - (up_sent + down_sent)
+
+        # Return the predictions
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

@@ -93,6 +93,9 @@ class IntradayPresenter:
             if feature == 'stochastic':
                 self._outputs.extend(['%K', '%D'])
                 continue
+            if feature == 'williams':
+                self._outputs.append('%R')
+                continue
 
             # Then add all others
             self._outputs.append(feature)
@@ -221,6 +224,11 @@ class IntradayPresenter:
                 datas.extend([pK, pD])
             elif feat == "rsi":
                 datas.append(_to_intraday_rsi(date, self.provider, 14))
+            elif feat == "%R":
+                # The Williams %R is mathematically equivalent to (1 - %K). It
+                # is duplicated here to obtain a shorter period.
+                pK, _ = _to_intraday_stochastic(date, self.provider, 10)
+                datas.append(pK - 1)
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
