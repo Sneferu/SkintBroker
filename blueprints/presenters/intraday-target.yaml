@@ -21,4 +21,5 @@ params:
     rsi: false
     stochastic: false
     williams: false
+    accdist: false
     target: true

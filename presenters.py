@@ -229,6 +229,8 @@ class IntradayPresenter:
                 # is duplicated here to obtain a shorter period.
                 pK, _ = _to_intraday_stochastic(date, self.provider, 10)
                 datas.append(pK - 1)
+            elif feat == "accdist":
+                datas.append(_to_intraday_accdist(date, self.provider))
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -537,6 +539,28 @@ def _to_intraday_stochastic(date: pd.Timestamp, provider: providers.DataProvider
     # Return them
     return nd.array(pK.values, utils.try_gpu(0)), \
            nd.array(pD.values, utils.try_gpu(0))
+
+def _to_intraday_accdist(date: pd.Timestamp, provider: providers.DataProvider) \
+        -> nd.NDArray:
+    """
+    Returns an ndarray consisting of the per-minute Accumulation/Distribution
+    Index of a data series for a given +date+ and +provider+.
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Next, calculate the Current Money Flow Volume
+    cmfv = (2 * data.close) - (data.high + data.low)
+    cmfv *= (data.volume / 1000) / (0.0001 + data.high - data.low)
+
+    # Now generate the Acc/Dist index for each timestamp
+    accdist = np.empty(len(cmfv))
+    accdist[0] = cmfv.iloc[0]
+    for i in range(1, len(cmfv)):
+        accdist[i] = accdist[i - 1] + cmfv.iloc[i]
+
+    # Return the Acc/Dist index
+    return nd.array(accdist / np.linalg.norm(accdist), utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:

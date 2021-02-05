@@ -403,6 +403,44 @@ class WilliamsBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class AccDistBlock(TechnicalBlock):
+    """
+    Implementation of the Accumulation/Distribution Index block per the mxnet
+    framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], threshold: float = 0.000,
+                 **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'accdist' in features[0]:
+            raise RuntimeError("Block requires the 'accdist' feature")
+        self.accdist_index = features[0].index('accdist')
+        self.threshold = threshold
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the AccDist Index
+        accdist = inputs[:, :, self.accdist_index]
+
+        # For now, this indicator is simple.  If up, uptrend.  If down,
+        # downtrend.
+        diff = accdist[:, -1] - accdist[:, -2]
+        up_sent = (diff > self.threshold).reshape(-1, 1)
+        down_sent = (diff < -self.threshold).reshape(-1, 1)
+        side_sent = 1 - (up_sent + down_sent)
+
+        # Return the predictions
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes
@@ -412,8 +450,7 @@ class TargetBlock(TechnicalBlock):
     # Only one public method is needed
     # pylint: disable=too-few-public-methods
 
-    def __init__(self, features: List[str], threshold: float = 1.8,
-                 **kwargs: Dict[str, Any]):
+    def __init__(self, features: List[str], **kwargs: Dict[str, Any]):
         """
         Init function.
         """

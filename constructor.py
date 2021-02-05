@@ -27,6 +27,7 @@ net_types = {
         "rsi": models.technical.RSIBlock,
         "stochastic": models.technical.StochasticOscillatorBlock,
         "williams": models.technical.WilliamsBlock,
+        "accdist": models.technical.AccDistBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

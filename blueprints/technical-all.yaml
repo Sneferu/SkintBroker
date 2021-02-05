@@ -49,6 +49,11 @@ williams_net: &williams_net
   inputs:
     - <presenter>
 
+accdist_net: &accdist_net
+  type: accdist
+  inputs:
+    - <presenter>
+
 # Define a net containing all technical nets
 technical_nets: &nets
 
@@ -61,6 +66,7 @@ technical_nets: &nets
   rsi: *rsi_net
   stochastic: *stochastic_net
   williams: *williams_net
+  accdist: *accdist_net
 
   concat:
     type: concat
@@ -76,6 +82,7 @@ technical_nets: &nets
       - rsi
       - stochastic
       - williams
+      - accdist
 
 # Next, define a standard model -----------------------------------------------
 
@@ -145,6 +152,11 @@ williams:
   <<: *basic_technical
   nets:
     williams: *williams_net
+
+accdist:
+  <<: *basic_technical
+  nets:
+    accdist: *accdist_net
 
 # A basic net which takes a concatenation of technical indicators as inputs
 # and runs them through a perceptron to output sentiment-style predictions
