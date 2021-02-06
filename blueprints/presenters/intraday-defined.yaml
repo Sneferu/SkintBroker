@@ -22,4 +22,5 @@ params:
     rsi: false
     stochastic: false
     williams: false
+    mfi: false
     target: false

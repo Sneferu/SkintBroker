@@ -231,6 +231,8 @@ class IntradayPresenter:
                 datas.append(pK - 1)
             elif feat == "accdist":
                 datas.append(_to_intraday_accdist(date, self.provider))
+            elif feat == "mfi":
+                datas.append(_to_intraday_mfi(date, self.provider, 30))
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -561,6 +563,31 @@ def _to_intraday_accdist(date: pd.Timestamp, provider: providers.DataProvider) \
 
     # Return the Acc/Dist index
     return nd.array(accdist / np.linalg.norm(accdist), utils.try_gpu(0))
+
+def _to_intraday_mfi(date: pd.Timestamp, provider: providers.DataProvider,
+                     period: int) -> nd.NDArray:
+    """
+    Returns an ndarray consisting of the per-minute Money Flow Index of a data
+    series for a given +date+ and +provider+ accross a given +period+.
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Next, calculate the typical price and money_flow
+    typical_price = (data.high + data.low + data.close) / 3
+    money_flow = typical_price * data.volume
+
+    # Find the positive and negative money flows
+    prev_typical_price = typical_price.shift(periods=1,
+                                             fill_value=typical_price[0])
+    positive_flow = money_flow.where(typical_price > prev_typical_price, 0)
+    negative_flow = money_flow.where(typical_price < prev_typical_price, 0)
+
+    # Sum over the window and return the ratio
+    positive = positive_flow.rolling(period).sum()
+    negative = negative_flow.rolling(period).sum()
+    mfi = positive / (positive + negative)
+    return nd.array(mfi.values, utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:

@@ -28,6 +28,7 @@ net_types = {
         "stochastic": models.technical.StochasticOscillatorBlock,
         "williams": models.technical.WilliamsBlock,
         "accdist": models.technical.AccDistBlock,
+        "mfi": models.technical.MoneyFlowIndexBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

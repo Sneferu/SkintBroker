@@ -441,6 +441,39 @@ class AccDistBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class MoneyFlowIndexBlock(TechnicalBlock):
+    """
+    Implementation of the Money Flow Index block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'mfi' in features[0]:
+            raise RuntimeError("Block requires the 'mfi' feature")
+        self.mfi_index = features[0].index('mfi')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the Money Flow Index
+        mfi = inputs[:, -1, self.mfi_index]
+
+        # Detect overbought/oversold conditions
+        up_sent = (mfi < 0.2).reshape(-1, 1)
+        down_sent = (mfi > 0.8).reshape(-1, 1)
+        side_sent = 1 - (up_sent + down_sent)
+
+        # Return the sentiments
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

@@ -22,4 +22,5 @@ params:
     stochastic: false
     williams: false
     accdist: false
+    mfi: false
     target: true
