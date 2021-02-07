@@ -31,6 +31,7 @@ net_types = {
         "accdist": models.technical.AccDistBlock,
         "mfi": models.technical.MoneyFlowIndexBlock,
         "vpt": models.technical.VolumePriceTrendBlock,
+        "obv": models.technical.OnBalanceVolumeBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

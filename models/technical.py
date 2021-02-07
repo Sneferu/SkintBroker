@@ -510,6 +510,47 @@ class VolumePriceTrendBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class OnBalanceVolumeBlock(TechnicalBlock):
+    """
+    Implementation of the On Balance Volume block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'obv' in features[0] or not 'open' in features[0]:
+            raise RuntimeError("Block requires the 'obv' and 'open' features")
+        self.obv_index = features[0].index('obv')
+        self.open_index = features[0].index('open')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the OBV and array
+        obv = inputs[:, :, self.obv_index]
+        opens = inputs[:, :, self.open_index]
+
+        # Next, get last, min, and max OBV and open values
+        obv_last = obv[:, -1].reshape(-1, 1)
+        obv_min = mx.nd.min(obv, axis=1).reshape(-1, 1)
+        obv_max = mx.nd.max(obv, axis=1).reshape(-1, 1)
+        open_last = opens[:, -1].reshape(-1, 1)
+        open_min = mx.nd.min(opens, axis=1).reshape(-1, 1)
+        open_max = mx.nd.max(opens, axis=1).reshape(-1, 1)
+
+        # Determine and return trends
+        up_sent = (obv_last >= obv_max) * (open_last >= open_max)
+        down_sent = (obv_last <= obv_min) * (open_last <= open_min)
+        side_sent = 1 - (up_sent + down_sent)
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

@@ -24,4 +24,5 @@ params:
     accdist: true
     mfi: true
     vpt: true
+    obv: true
     target: false

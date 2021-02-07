@@ -235,6 +235,8 @@ class IntradayPresenter:
                 datas.append(_to_intraday_mfi(date, self.provider, 30))
             elif feat == "vpt":
                 datas.append(_to_intraday_vpt(date, self.provider))
+            elif feat == "obv":
+                datas.append(_to_intraday_obv(date, self.provider))
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -606,7 +608,28 @@ def _to_intraday_vpt(date: pd.Timestamp, provider: providers.DataProvider) \
     vpt = data.volume * (data.close - prev_close) / prev_close
 
     # Return the VPT
-    return nd.array(vpt.values, utils.try_gpu(0))
+    return nd.array(np.cumsum(vpt.values), utils.try_gpu(0))
+
+def _to_intraday_obv(date: pd.Timestamp, provider: providers.DataProvider,
+        period: int = 45) \
+        -> nd.NDArray:
+    """
+    Returns an ndarray consisting of the per-minute On Balance Volume of a
+    data series for a given +date+ and +provider+.
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Get the positive and negative volume
+    prev_close = data.close.shift(periods=1, fill_value=data.close[0])
+    vol_pos = data.volume.where((data.close - prev_close) > 0, 0)
+    vol_neg = -data.volume.where((data.close - prev_close) < 0, 0)
+
+    # Cumulatively sum them
+    cum_vol = np.cumsum(vol_pos.values + vol_neg.values)
+
+    # Return the OBV
+    return nd.array(cum_vol, utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:
