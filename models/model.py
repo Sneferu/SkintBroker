@@ -99,7 +99,8 @@ class SequentialModel:
 
     def __init__(self, net: Net, pres: List[presenters.DataPresenter],
                  name: str, *, window: int = 45, verbose: bool = False,
-                 loss=mx.gluon.loss.L2Loss()) -> None:
+                 learning_rate: float = 0.0001, loss=mx.gluon.loss.L2Loss()) \
+        -> None:
         """
         Initialization function.
         Ensures that this object gets an mxnet block +net+ and a set of data
@@ -107,6 +108,7 @@ class SequentialModel:
         The +loss+ parameter allows selection of a training loss (default L2).
         The +verbose+ flag activates pseudo-debug printing.  The +name+
         parameter uniquely identifies the model for saving/loading.
+        The +learning_rate+ is exactly what it sounds like.
         """
         self.net = net
         self.presenters = pres
@@ -114,6 +116,7 @@ class SequentialModel:
         self.window = window
         self.loss = loss
         self.verbose = verbose
+        self.learning_rate = learning_rate
 
         self._output_type = "prediction" if net.features[0] == "prediction" \
                             else "sentiment"
@@ -214,7 +217,7 @@ class SequentialModel:
 
         # Initialize trainer
         trainer = mx.gluon.Trainer(self.net.collect_params(), 'adam',
-                                   {'learning_rate': 0.00005})
+                                   {'learning_rate': self.learning_rate})
 
         # For each data epoch: train, validate, and record
         training_losses = []
