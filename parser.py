@@ -48,3 +48,15 @@ def include_constructor(loader: Loader, node: yaml.Node) -> Any:
                                             loader.construct_scalar(node) + ".yaml"))
     with open(filename, 'r') as f:
         return yaml.load(f, Loader)
+
+
+def safe_get(dic: Dict[str, Any], var: str) -> Any:
+    """
+    Returns an item if it exists.  If not, throws an error.
+    """
+    val = dic.get(var)
+    if not val:
+        raise RuntimeError(f"No '{var}' specified in dictionary!")
+    return val
+
+

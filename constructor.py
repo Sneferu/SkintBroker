@@ -10,6 +10,7 @@ with the info file structure.
 from typing import Any, Dict, List
 
 from . import models, presenters, providers
+from .parser import safe_get
 
 
 # Dictionary for assigning nets to type specifiers
@@ -41,16 +42,6 @@ model_types = {
         }
 
 
-def _safe_get(dic: Dict[str, Any], var: str) -> Any:
-    """
-    Returns an item if it exists.  If not, throws an error.
-    """
-    val = dic.get(var)
-    if not val:
-        raise RuntimeError(f"No '{var}' specified in dictionary!")
-    return val
-
-
 class ContainerNet(models.Net):
     """
     Net for containing other nets
@@ -76,12 +67,12 @@ class ContainerNet(models.Net):
             for net_name, net in nets.items():
 
                 # Get name and type
-                net_type = _safe_get(net, "type")
+                net_type = safe_get(net, "type")
 
                 # Get all input nets and determine their features
                 input_features = []
                 input_blocks = []
-                for input_name in _safe_get(net, "inputs"):
+                for input_name in safe_get(net, "inputs"):
 
                     # First check against the presenter
                     if input_name == "<presenter>":
@@ -98,7 +89,7 @@ class ContainerNet(models.Net):
 
                 # Finally, construct the net and add it to dictionaries
                 params = net.get("params", {})
-                net_class = _safe_get(net_types, net_type)
+                net_class = safe_get(net_types, net_type)
                 net_block = net_class(input_features, **params)
                 self.register_child(net_block)
                 nets_by_name[net_name] = net_block
@@ -173,22 +164,22 @@ def build_model(ticker: str, name: str, params: Dict[str, Any]) \
     """
 
     # First get the requested data provider and presenter
-    prov_info = _safe_get(params, "provider")
+    prov_info = safe_get(params, "provider")
     provider = build_provider(ticker, prov_info)
-    pres_info = _safe_get(params, "presenter")
+    pres_info = safe_get(params, "presenter")
     presenter = build_presenter(provider, pres_info)
 
     # Next, build a net which contains all requested nets
-    nets_info = _safe_get(params, "nets")
+    nets_info = safe_get(params, "nets")
     net = ContainerNet(nets_info, presenter.data_features())
 
     # Finally, construct a model for training said net
-    model_type = _safe_get(model_types, _safe_get(params, "type"))
-    loss = models.find_loss(_safe_get(params, "loss"),
-                            _safe_get(params, "output"))
+    model_type = safe_get(model_types, safe_get(params, "type"))
+    loss = models.find_loss(safe_get(params, "loss"),
+                            safe_get(params, "output"))
 
     model = model_type(net, [presenter], name, loss=loss,
-                       **_safe_get(params, "params"))
+                       **safe_get(params, "params"))
 
     return model
 
@@ -202,9 +193,9 @@ def build_presenter(provider: providers.DataProvider,
     types = {"intraday": presenters.IntradayPresenter}
 
     # First, gather presenter type and parameters
-    pres = _safe_get(params, "type")
-    pres_type = _safe_get(types, pres)
-    pres_params = _safe_get(params, "params")
+    pres = safe_get(params, "type")
+    pres_type = safe_get(types, pres)
+    pres_params = safe_get(params, "params")
 
     # Finally, construct and return the presenter
     return pres_type(provider, **pres_params)
@@ -219,8 +210,8 @@ def build_provider(ticker: str, params: Dict[str, Any]) \
 
     # First, gather provider type and parameters
     prov = params.get("type")
-    prov_type = _safe_get(types, prov)
-    prov_params = _safe_get(params, "params")
+    prov_type = safe_get(types, prov)
+    prov_params = safe_get(params, "params")
 
     # Then construct and return the provider
     return prov_type(ticker, **prov_params)
