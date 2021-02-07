@@ -373,10 +373,11 @@ def _to_intraday_change(date: pd.Timestamp, provider: providers.DataProvider,
     """
     Returns an ndarray consisting of the per-minute close of a data series for
     a given +date+ and +provider+.  If +normalize+, it is divided by the
-    open price.
+    previous close
     """
     data = _get_intraday_data(date, provider)
-    close = ((data.close - data.open) / data.open) if normalize else data.close
+    close_prev = data.close.shift(periods=1, fill_value=data.close[0])
+    close = ((data.close - close_prev) / close_prev) if normalize else data.close
     return nd.array(close.values, utils.try_gpu(0))
 
 def _to_intraday_open(date: pd.Timestamp, provider: providers.DataProvider,
