@@ -30,6 +30,7 @@ net_types = {
         "williams": models.technical.WilliamsBlock,
         "accdist": models.technical.AccDistBlock,
         "mfi": models.technical.MoneyFlowIndexBlock,
+        "vpt": models.technical.VolumePriceTrendBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

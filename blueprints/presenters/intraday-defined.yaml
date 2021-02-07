@@ -17,6 +17,7 @@ params:
     macd: true
     trix15: true
     accdist: true
+    vpt: true
     mass_index: false
     vortex: false
     rsi: false

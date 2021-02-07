@@ -233,6 +233,8 @@ class IntradayPresenter:
                 datas.append(_to_intraday_accdist(date, self.provider))
             elif feat == "mfi":
                 datas.append(_to_intraday_mfi(date, self.provider, 30))
+            elif feat == "vpt":
+                datas.append(_to_intraday_vpt(date, self.provider))
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -589,6 +591,22 @@ def _to_intraday_mfi(date: pd.Timestamp, provider: providers.DataProvider,
     negative = negative_flow.rolling(period).sum()
     mfi = positive / (positive + negative)
     return nd.array(mfi.values, utils.try_gpu(0))
+
+def _to_intraday_vpt(date: pd.Timestamp, provider: providers.DataProvider) \
+        -> nd.NDArray:
+    """
+    Returns an ndarray consisting of the per-minute Volume Price Trend of a
+    data series for a given +date+ and +provider+.
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Next, multiply the change by the volume
+    prev_close = data.close.shift(periods=1, fill_value=data.close[0])
+    vpt = data.volume * (data.close - prev_close) / prev_close
+
+    # Return the VPT
+    return nd.array(vpt.values, utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:

@@ -474,6 +474,42 @@ class MoneyFlowIndexBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class VolumePriceTrendBlock(TechnicalBlock):
+    """
+    Implementation of the Volume Price Trend block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'vpt' in features[0]:
+            raise RuntimeError("Block requires the 'vpt' feature")
+        self.vpt_index = features[0].index('vpt')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the VPT array
+        vpt = inputs[:, :, self.vpt_index]
+
+        # Next, get last, min, and max VPT values
+        vpt_last = vpt[:, -1].reshape(-1, 1)
+        vpt_min = mx.nd.min(vpt, axis=1).reshape(-1, 1)
+        vpt_max = mx.nd.max(vpt, axis=1).reshape(-1, 1)
+
+        # Determine and return trends
+        up_sent = vpt_last >= vpt_max
+        down_sent = vpt_last <= vpt_min
+        side_sent = 1 - (up_sent + down_sent)
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

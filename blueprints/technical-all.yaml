@@ -59,6 +59,11 @@ mfi_net: &mfi_net
   inputs:
     - <presenter>
 
+vpt_net: &vpt_net
+  type: vpt
+  inputs:
+    - <presenter>
+
 # Define a net containing all technical nets
 technical_nets: &nets
 
@@ -73,6 +78,7 @@ technical_nets: &nets
   williams: *williams_net
   accdist: *accdist_net
   mfi: *mfi_net
+  vpt: *vpt_net
 
   concat:
     type: concat
@@ -90,6 +96,7 @@ technical_nets: &nets
       - williams
       - accdist
       - mfi
+      - vpt
 
 # Next, define a standard model -----------------------------------------------
 
@@ -169,6 +176,11 @@ mfi:
   <<: *basic_technical
   nets:
     mfi: *mfi_net
+
+vpt:
+  <<: *basic_technical
+  nets:
+    vpt: *vpt_net
 
 # A basic net which takes a concatenation of technical indicators as inputs
 # and runs them through a perceptron to output sentiment-style predictions

@@ -23,4 +23,5 @@ params:
     williams: true
     accdist: true
     mfi: true
+    vpt: true
     target: false
