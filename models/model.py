@@ -137,6 +137,9 @@ class SequentialModel:
                 is set, else it will throw an exception.
         +random_init+: Whether or not to ramdomly initialize parameters.
         """
+        if not self.net.trainable:
+            return
+
         if not save or random_init:
             self.net.collect_params().initialize(mx.init.Xavier(),
                                                  ctx=utils.try_gpu(0))
@@ -150,6 +153,9 @@ class SequentialModel:
         """
         Saves parameters to a file in the +save+ directory.
         """
+        if not self.net.trainable:
+            return
+
         save.mkdir(exist_ok=True, parents=True)
         save_file = save/self.name
         self.net.save_parameters(str(save_file))
