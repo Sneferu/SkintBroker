@@ -69,6 +69,11 @@ obv_net: &obv_net
   inputs:
     - <presenter>
 
+dysart_net: &dysart_net
+  type: dysart
+  inputs:
+    - <presenter>
+
 # Define a net containing all technical nets
 technical_nets: &nets
 
@@ -85,6 +90,7 @@ technical_nets: &nets
   mfi: *mfi_net
   vpt: *vpt_net
   obv: *obv_net
+  dysart: *dysart_net
 
   concat:
     type: concat
@@ -104,6 +110,7 @@ technical_nets: &nets
       - mfi
       - vpt
       - obv
+      - dysart
 
 # Next, define a standard model -----------------------------------------------
 
@@ -193,6 +200,11 @@ obv:
   <<: *basic_technical
   nets:
     obv: *obv_net
+
+dysart:
+  <<: *basic_technical
+  nets:
+    dysart: *dysart_net
 
 # A basic net which takes a concatenation of technical indicators as inputs
 # and runs them through a perceptron to output sentiment-style predictions

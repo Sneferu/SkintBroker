@@ -25,4 +25,5 @@ params:
     mfi: true
     vpt: true
     obv: true
+    dysart: true
     target: false

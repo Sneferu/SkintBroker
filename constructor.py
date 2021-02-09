@@ -32,6 +32,7 @@ net_types = {
         "mfi": models.technical.MoneyFlowIndexBlock,
         "vpt": models.technical.VolumePriceTrendBlock,
         "obv": models.technical.OnBalanceVolumeBlock,
+        "dysart": models.technical.DysartBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

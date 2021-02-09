@@ -96,6 +96,9 @@ class IntradayPresenter:
             if feature == 'williams':
                 self._outputs.append('%R')
                 continue
+            if feature == 'dysart':
+                self._outputs.extend(['pvi', 'nvi'])
+                continue
 
             # Then add all others
             self._outputs.append(feature)
@@ -237,6 +240,9 @@ class IntradayPresenter:
                 datas.append(_to_intraday_vpt(date, self.provider))
             elif feat == "obv":
                 datas.append(_to_intraday_obv(date, self.provider))
+            elif feat == "pvi":
+                pvi, nvi = _to_intraday_dysart(date, self.provider)
+                datas.extend([pvi, nvi])
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -611,8 +617,7 @@ def _to_intraday_vpt(date: pd.Timestamp, provider: providers.DataProvider) \
     return nd.array(np.cumsum(vpt.values), utils.try_gpu(0))
 
 def _to_intraday_obv(date: pd.Timestamp, provider: providers.DataProvider,
-        period: int = 45) \
-        -> nd.NDArray:
+                     period: int = 45) -> nd.NDArray:
     """
     Returns an ndarray consisting of the per-minute On Balance Volume of a
     data series for a given +date+ and +provider+.
@@ -630,6 +635,32 @@ def _to_intraday_obv(date: pd.Timestamp, provider: providers.DataProvider,
 
     # Return the OBV
     return nd.array(cum_vol, utils.try_gpu(0))
+
+def _to_intraday_dysart(date: pd.Timestamp, provider: providers.DataProvider) \
+        -> Tuple[nd.NDArray, nd.NDArray]:
+    """
+    Returns the Dysart Negative and Positive Volume Indicies for a data series
+    for a given +date+ and +provider+
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Next, get the relative price changes
+    prev_close = data.close.shift(periods=1, fill_value=data.close[0])
+    change = (data.close - prev_close) / prev_close
+
+    # Separate decreased and increased volume days
+    prev_volume = data.volume.shift(periods=1, fill_value=data.volume[0])
+    vol_inc = change.where(data.volume > prev_volume, 0)
+    vol_dec = change.where(data.volume < prev_volume, 0)
+
+    # Perform cumulative sum to generate PVI and NVI
+    pvi = np.cumsum(vol_inc.values)
+    nvi = np.cumsum(vol_dec.values)
+
+    # Return the PVI and NVI
+    return nd.array(pvi, utils.try_gpu(0)), nd.array(nvi, utils.try_gpu(0))
+
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:

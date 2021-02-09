@@ -551,6 +551,52 @@ class OnBalanceVolumeBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class DysartBlock(TechnicalBlock):
+    """
+    Implementation of the Dysart Negative/Positive Volume Index block per the
+    mxnet framework.  Note that this block uses the Fosback variations, as they
+    are better suited to short timeframes.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'pvi' in features[0] or not 'nvi' in features[0]:
+            raise RuntimeError("Block requires the 'pvi' and 'nvi' features")
+        self.pvi_index = features[0].index('pvi')
+        self.nvi_index = features[0].index('nvi')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the PVI and NVI arrays
+        pvi = inputs[:, :, self.pvi_index]
+        nvi = inputs[:, :, self.nvi_index]
+
+        # Find the extreme and last values
+        pvi_min = mx.nd.min(pvi, axis=1).reshape(-1, 1)
+        pvi_last = pvi[:, -1].reshape(-1, 1)
+        nvi_max = mx.nd.max(nvi, axis=1).reshape(-1, 1)
+        nvi_last = nvi[:, -1].reshape(-1, 1)
+
+        # Generate and return trends.  Per Fosback's analysis, NVI is more
+        # accurate and finding bull markets, where PVI is better at finding
+        # bears.
+        zeros = mx.nd.zeros(nvi_last.shape, ctx=inputs.context)
+        increasing = (nvi_last >= nvi_max)
+        decreasing = (pvi_last <= pvi_min)
+        up_sent = increasing * (1 - decreasing)
+        down_sent = decreasing * (1 - increasing)
+        side_sent = 1 - (up_sent + down_sent)
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes
