@@ -178,8 +178,12 @@ def build_model(ticker: str, name: str, params: Dict[str, Any]) \
 
     # Finally, construct a model for training said net
     model_type = safe_get(model_types, safe_get(params, "type"))
-    loss = models.find_loss(safe_get(params, "loss"),
-                            safe_get(params, "output"))
+
+    # Don't expose a net directly to a raw gambling loss.  Give it the
+    # gradient-friendly approximation
+    loss_type = safe_get(params, "loss")
+    loss_type = "gfg" if loss_type == "gambling" else loss_tyle
+    loss = models.find_loss(loss_type, safe_get(params, "output"))
 
     model = model_type(net, [presenter], name, loss=loss,
                        **safe_get(params, "params"))

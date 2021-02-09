@@ -40,16 +40,18 @@ class GamblingLoss(mx.gluon.loss.Loss):
     """
 
     def __init__(self, output: str, threshold=0.001, weight=None, batch_axis=0,
-                 **kwargs):
+                 include_variance: bool = False, **kwargs):
         """
         Init function.  The +threshold+ parameter indicates the magnitude of
         changes required to create nonzero loss.  The default of 0.001 means
         trades should not be made if changes are under a tenth of a percent.
         The +output+ parameter dictates the format of the prediction tensor.
+        If +include_variance+, includes the variance of the loss as well.
         """
         super().__init__(weight, batch_axis, **kwargs)
         self.output = output
         self.threshold = threshold
+        self.include_variance = include_variance
 
     def hybrid_forward(self, F, prediction, target):
         """
@@ -69,21 +71,38 @@ class GamblingLoss(mx.gluon.loss.Loss):
             down_loss = F.where(prediction < -self.threshold, target, zeros)
             total_down = F.sum(down_loss, 1, keepdims=True)
 
-            # Return the total loss
-            return F.sum(total_up) + F.sum(total_down)
+            # Calculate variance
+            if self.include_variance:
+                variance = (total_down * total_down) + (total_up * total_up)
+                variance = F.sum(variance) / prediction.shape[0]
+            else:
+                variance = .0
+
+            # Return the total loss and variance
+            return (F.sum(total_up) + F.sum(total_down)), variance
         elif self.output == "sentiment":
 
             # Make prediction based on sentiment and confidence
             up_loss = -prediction[:, 0] * target[:, 0]
             down_loss = prediction[:, 1] * target[:, 0]
-            return F.sum(up_loss + down_loss)
+
+            # Calculate variance
+            if self.include_variance:
+                variance = (up_loss * up_loss) + (down_loss * down_loss)
+                variance = F.sum(variance) / prediction.shape[0]
+            else:
+                variance = .0
+
+            return F.sum(up_loss + down_loss), variance
 
 
 class GFGLoss(GamblingLoss):
     """
     This is a Gradient Friendly version of the Gambling Loss.  While not 100%
     accurate, it facilitates gradient learning by including the prediction
-    value in the final calculation.
+    value in the final calculation.  Note that this version is designed
+    to be lightweight for use with training, and therefore does not
+    return the variance.
     """
 
     def __init__(self, output: str, corrective_l2=0.6, weight=None,
@@ -94,7 +113,8 @@ class GFGLoss(GamblingLoss):
         trades should not be made if changes are under a tenth of a percent.
         The +output+ parameter dictates the format of the prediction tensor.
         """
-        super().__init__(output, weight=weight, batch_axis=batch_axis, **kwargs)
+        super().__init__(output, weight=weight, batch_axis=batch_axis,
+                         include_variance=False, **kwargs)
         self.corrective_l2 = corrective_l2
 
     def hybrid_forward(self, F, prediction, target):
@@ -120,7 +140,8 @@ class GFGLoss(GamblingLoss):
         else:
             # Other implementations of Gambling Loss are already gradient-
             # friendly
-            return super().hybrid_forward(F, prediction, target)
+            gfgloss, _ = super().hybrid_forward(F, prediction, target)
+            return gfgloss
 
 
 def find_loss(loss: str, output: str) -> mx.gluon.loss.Loss:
@@ -147,7 +168,12 @@ def find_loss(loss: str, output: str) -> mx.gluon.loss.Loss:
     elif loss == "gambling":
         if not output in ["prediction", "sentiment"]:
             raise RuntimeError(f"Gambling Loss not compatible with {output} type")
-        return GamblingLoss(output)
+        return GamblingLoss(output, include_variance=False)
+
+    elif loss == "gambling-variance":
+        if not output in ["prediction", "sentiment"]:
+            raise RuntimeError(f"Gambling Loss not compatible with {output} type")
+        return GamblingLoss(output, include_variance=True)
 
     raise RuntimeError(f"{loss} is not a type of Loss block")
 

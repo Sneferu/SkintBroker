@@ -121,7 +121,7 @@ class SequentialModel:
         self._output_type = "prediction" if net.features[0] == "prediction" \
                             else "sentiment"
 
-        self._success_loss = find_loss("gambling", self._output_type)
+        self._success_loss = find_loss("gambling-variance", self._output_type)
 
         # Ensure there is at least one presenter
         if not presenters:
@@ -204,21 +204,24 @@ class SequentialModel:
             # First, run the model on each validation batch
             val_batches = [self.presenters[0].get_validation_batch(batch_size) \
                            for _ in range(valid_batch_count)]
-            valid_loss, valid_success = 0, 0
+            valid_loss, valid_success, valid_variance = 0, 0, 0
             print(f"Validating on {valid_batch_count} batches")
             for data_batch, target_batch in val_batches:
-                loss, success = self._evaluate(self._format_input(data_batch),
-                                               target_batch)
+                loss, success, variance = self._evaluate(self._format_input(data_batch),
+                                                         target_batch)
                 valid_loss += loss / batch_size
                 valid_success += success / batch_size
+                valid_variance += variance
 
             # Calculate total loss, accounting for batch size
             valid_loss /= valid_batch_count
             valid_success /= valid_batch_count
-            return valid_loss, valid_success
+            valid_variance /= valid_batch_count
+            return valid_loss, valid_success, valid_variance
 
         if not self.net.trainable:
-            v_loss, v_success = _validate()
+            v_loss, v_success, variance = _validate()
+            print(f"Overall success/variance: {v_success}, {variance}")
             return [v_loss], [v_loss], [v_success]
 
         # Initialize trainer
@@ -243,9 +246,9 @@ class SequentialModel:
             for batch in range(training_batch_count):
                 data_batch, target_batch = \
                         self.presenters[0].get_training_batch(batch_size)
-                loss, success = self._evaluate(self._format_input(data_batch),
-                                               target_batch,
-                                               trainer=trainer)
+                loss, success, variance = self._evaluate(self._format_input(data_batch),
+                                                         target_batch,
+                                                         trainer=trainer)
                 loss /= batch_size
                 success /= batch_size
                 if self.verbose:
@@ -253,8 +256,8 @@ class SequentialModel:
                 training_loss += loss
 
             # Validate
-            valid_loss, valid_success = _validate()
-            print(f"Epoch {epoch} validation loss: {valid_loss}")
+            valid_loss, valid_success, variance = _validate()
+            print(f"Epoch {epoch} validation loss/variance: {valid_loss}, {variance}")
 
             training_losses.append(training_loss/training_batch_count)
             valid_losses.append(valid_loss)
@@ -328,10 +331,11 @@ class SequentialModel:
         return self.net(data)
 
     def _evaluate(self, data: mx.nd.NDArray, target: mx.nd.NDArray,
-                  trainer: Optional[mx.gluon.Trainer] = None) -> float:
+                  trainer: Optional[mx.gluon.Trainer] = None) \
+            -> Tuple[float, float, float]:
         """
         Runs a batch of +data+ and returns the total loss based on +targett+
-        predictions.
+        predictions.  Returns the loss, success, and success variance.
 
         If +trainer+, updates model parameters as well.
         """
@@ -367,9 +371,10 @@ class SequentialModel:
             trainer.step(batch_size)
 
         # Calculate success
-        success = -self._success_loss(out, target.swapaxes(0, 1)[-1]).sum().asscalar()
+        target_array = target
+        valid_loss, variance = self._success_loss(out, target[:, -1, :])
 
-        return loss, success
+        return loss, -valid_loss.asscalar(), variance.asscalar()
 
     def _format_input(self, array):
         """
