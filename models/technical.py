@@ -597,6 +597,48 @@ class DysartBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class DonchianChannelBlock(TechnicalBlock):
+    """
+    Implementation of the Donchian Channel block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'high' in features[0] or not 'low' in features[0] \
+           or not 'open' in features[0]:
+            raise RuntimeError("Block requires the high, low and open features")
+        self.high_index = features[0].index('high')
+        self.low_index = features[0].index('low')
+        self.open_index = features[0].index('open')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the required features
+        open = inputs[:, :, self.open_index]
+        high = (1 + inputs[:, :, self.high_index]) * open
+        low = (1 + inputs[:, :, self.low_index]) * open
+
+        # Determine current max, min, and latest values
+        window_max = mx.nd.max(high, axis=1).reshape(-1, 1)
+        window_min = mx.nd.min(low, axis=1).reshape(-1, 1)
+
+        # Detect overbought/oversold conditions
+        up_sent = high[:, -1].reshape(-1, 1) >= window_max
+        down_sent = low[:, -1].reshape(-1, 1) <= window_min
+        side_sent = 1 - (up_sent + down_sent)
+
+        # Return the sentiments
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

@@ -33,6 +33,7 @@ net_types = {
         "vpt": models.technical.VolumePriceTrendBlock,
         "obv": models.technical.OnBalanceVolumeBlock,
         "dysart": models.technical.DysartBlock,
+        "donchian": models.technical.DonchianChannelBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

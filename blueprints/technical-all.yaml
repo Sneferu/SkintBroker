@@ -74,6 +74,11 @@ dysart_net: &dysart_net
   inputs:
     - <presenter>
 
+donchian_net: &donchian_net
+  type: donchian
+  inputs:
+    - <presenter>
+
 # Define a net containing all technical nets
 technical_nets: &nets
 
@@ -91,6 +96,7 @@ technical_nets: &nets
   vpt: *vpt_net
   obv: *obv_net
   dysart: *dysart_net
+  donchian: *donchian_net
 
   concat:
     type: concat
@@ -111,6 +117,7 @@ technical_nets: &nets
       - vpt
       - obv
       - dysart
+      - donchian
 
 # Next, define a standard model -----------------------------------------------
 
@@ -205,6 +212,11 @@ dysart:
   <<: *basic_technical
   nets:
     dysart: *dysart_net
+
+donchian:
+  <<: *basic_technical
+  nets:
+    donchian: *donchian_net
 
 # A basic net which takes a concatenation of technical indicators as inputs
 # and runs them through a perceptron to output sentiment-style predictions
