@@ -124,6 +124,7 @@ technical_nets: &nets
 common_params: &common_params
   window: 45
   verbose: True
+  learning_rate: 0.00001
 
 presenter: &presenter
   !include presenters/intraday-all
