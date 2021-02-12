@@ -639,6 +639,93 @@ class DonchianChannelBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class BollingerBreakoutBlock(TechnicalBlock):
+    """
+    Implementation of the Bollinger Breakout block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'bollinger+' in features[0] or not 'bollinger-' in features[0] \
+           or not 'open' in features[0]:
+            raise RuntimeError("Block requires the bollinger+, bollinger-, "
+                               "and open features")
+        self.b_top_index = features[0].index('bollinger+')
+        self.b_bot_index = features[0].index('bollinger-')
+        self.open_index = features[0].index('open')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the required features
+        b_top = inputs[:, -1, self.b_top_index]
+        b_bot = inputs[:, -1, self.b_bot_index]
+        opens = inputs[:, -1, self.open_index]
+
+        # Check if the open has broken through a band
+        up_sent = (opens > b_top).reshape(-1, 1)
+        down_sent = (opens < b_bot).reshape(-1, 1)
+        side_sent = 1 - (up_sent + down_sent)
+
+        # Return the sentiments
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
+class BollingerBounceBlock(TechnicalBlock):
+    """
+    Implementation of the Bollinger Bounce block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'bollinger+' in features[0] or not 'bollinger=' in features[0] \
+           or not 'bollinger-' in features[0] or not 'open' in features[0]:
+            raise RuntimeError("Block requires the bollinger+, bollinger=, "
+                               "bollinger-, and open features")
+        self.b_top_index = features[0].index('bollinger+')
+        self.b_mid_index = features[0].index('bollinger=')
+        self.b_bot_index = features[0].index('bollinger-')
+        self.open_index = features[0].index('open')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the required features
+        b_top = inputs[:, :, self.b_top_index]
+        b_bot = inputs[:, :, self.b_bot_index]
+        opens = inputs[:, :, self.open_index]
+
+        # Check if the open has bounced off a band
+        bounce_top = (opens[:, -5] < b_top[:, -5]) * \
+                     (opens[:, -3] >= b_top[:, -3]) * \
+                     (opens[:, -1] < b_top[:, -1])
+        bounce_bottom = (opens[:, -5] > b_bot[:, -5]) * \
+                        (opens[:, -3] <= b_bot[:, -3]) * \
+                        (opens[:, -1] > b_bot[:, -1])
+
+        # Generate sentiments.
+        down_sent = bounce_top.reshape(-1, 1)
+        up_sent = bounce_bottom.reshape(-1, 1)
+        side_sent = 1 - (up_sent + down_sent)
+
+        # Return the sentiments
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

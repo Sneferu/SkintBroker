@@ -99,6 +99,8 @@ class IntradayPresenter:
             if feature == 'dysart':
                 self._outputs.extend(['pvi', 'nvi'])
                 continue
+            if feature == 'bollinger':
+                self._outputs.extend(['bollinger+', 'bollinger=', 'bollinger-'])
 
             # Then add all others
             self._outputs.append(feature)
@@ -243,6 +245,11 @@ class IntradayPresenter:
             elif feat == "pvi":
                 pvi, nvi = _to_intraday_dysart(date, self.provider)
                 datas.extend([pvi, nvi])
+            elif feat == "bollinger+":
+                b_top, b_mid, b_bottom = _to_intraday_bollinger(date,
+                                                                self.provider,
+                                                                30, 2)
+                datas.extend([b_top, b_mid, b_bottom])
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -661,6 +668,32 @@ def _to_intraday_dysart(date: pd.Timestamp, provider: providers.DataProvider) \
     # Return the PVI and NVI
     return nd.array(pvi, utils.try_gpu(0)), nd.array(nvi, utils.try_gpu(0))
 
+def _to_intraday_bollinger(date: pd.Timestamp, provider: providers.DataProvider,
+                           period: int, stddev: float) \
+        -> Tuple[nd.NDArray, nd.NDArray, nd.NDArray]:
+    """
+    Returns the top, middle, and bottom Bollinger bands for a data series for
+    a given +date+ and +provider+.  The bands are calculated over a given
+    +period+, with top and bottom offset from middle by +stddev+ standard
+    deviations.
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Next, get the simple average and generate the middle band
+    avg = (data.close + data.high + data.low) / 3
+    middle = avg.rolling(period).mean()
+
+    # Next, get the standard deviation and generate the upper and lower bands
+    std = avg.rolling(period).std()
+    top = middle + stddev * std
+    bottom = middle - stddev * std
+
+    # Return the normalized top, middle, and bottom bands
+    norm = data.open.iloc[0]
+    return nd.array((top / norm).values, utils.try_gpu(0)), \
+           nd.array((middle / norm).values, utils.try_gpu(0)), \
+           nd.array((bottom / norm).values, utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:

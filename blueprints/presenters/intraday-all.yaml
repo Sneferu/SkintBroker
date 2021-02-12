@@ -26,4 +26,5 @@ params:
     vpt: true
     obv: true
     dysart: true
+    bollinger: true
     target: false

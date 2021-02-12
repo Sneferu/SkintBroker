@@ -34,6 +34,8 @@ net_types = {
         "obv": models.technical.OnBalanceVolumeBlock,
         "dysart": models.technical.DysartBlock,
         "donchian": models.technical.DonchianChannelBlock,
+        "bollinger_breakout": models.technical.BollingerBreakoutBlock,
+        "bollinger_bounce": models.technical.BollingerBounceBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

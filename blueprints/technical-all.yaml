@@ -79,6 +79,16 @@ donchian_net: &donchian_net
   inputs:
     - <presenter>
 
+bollinger_break_net: &bollinger_break_net
+  type: bollinger_breakout
+  inputs:
+    - <presenter>
+
+bollinger_bounce_net: &bollinger_bounce_net
+  type: bollinger_bounce
+  inputs:
+    - <presenter>
+
 # Define a net containing all technical nets
 technical_nets: &nets
 
@@ -97,6 +107,8 @@ technical_nets: &nets
   obv: *obv_net
   dysart: *dysart_net
   donchian: *donchian_net
+  bollinger_break: *bollinger_break_net
+  bollinger_bounce: *bollinger_bounce_net
 
   concat:
     type: concat
@@ -118,6 +130,8 @@ technical_nets: &nets
       - obv
       - dysart
       - donchian
+      - bollinger_break
+      - bollinger_bounce
 
 # Next, define a standard model -----------------------------------------------
 
@@ -218,6 +232,16 @@ donchian:
   <<: *basic_technical
   nets:
     donchian: *donchian_net
+
+bollinger_break:
+  <<: *basic_technical
+  nets:
+    bollinger_break: *bollinger_break_net
+
+bollinger_bounce:
+  <<: *basic_technical
+  nets:
+    bollinger_bounce: *bollinger_bounce_net
 
 # A basic net which takes a concatenation of technical indicators as inputs
 # and runs them through a perceptron to output sentiment-style predictions
