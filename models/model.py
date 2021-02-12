@@ -220,9 +220,14 @@ class SequentialModel:
             return valid_loss, valid_success, valid_variance
 
         if not self.net.trainable:
-            v_loss, v_success, variance = _validate()
-            print(f"Overall success/variance: {v_success}, {variance}")
-            return [v_loss], [v_loss], [v_success]
+            # Validate several times, as there is no data from training.
+            v_successes, v_losses = [], []
+            for i in range(epochs):
+                v_loss, v_success, variance = _validate()
+                v_losses.append(v_loss)
+                v_successes.append(v_success)
+                print(f"Success/variance {i}: {v_success}, {variance}")
+            return v_losses, v_losses, v_successes
 
         # Initialize trainer
         trainer = mx.gluon.Trainer(self.net.collect_params(), 'adam',
