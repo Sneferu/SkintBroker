@@ -27,4 +27,5 @@ params:
     obv: false
     dysart: false
     bollinger: false
+    ultimate: false
     target: true

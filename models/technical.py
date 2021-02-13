@@ -726,6 +726,50 @@ class BollingerBounceBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class UltimateOscillatorBlock(TechnicalBlock):
+    """
+    Implementation of the Ultimate Oscillator block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'ultimate' in features[0] or not 'open' in features[0]:
+            raise RuntimeError("Block requires the ultimate, high, low, and "
+                               "open features")
+        self.ultimate_index = features[0].index('ultimate')
+        self.high_index = features[0].index('low')
+        self.low_index = features[0].index('low')
+        self.open_index = features[0].index('open')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the required features
+        opens = inputs[:, :, self.open_index]
+        highs = inputs[:, :, self.high_index] * opens
+        lows = inputs[:, :, self.low_index] * opens
+        ult = inputs[:, :, self.ultimate_index]
+
+        # Find bullish divergence
+        bull_div = (lows[:, -1] < lows[:, -2]) * (ult[:, -1] >= ult[:, -2])
+        up_sent = (bull_div * (ult[:, -1] < 0.3)).reshape(-1, 1)
+
+        # Find bearish divergence
+        bear_div = (highs[:, -1] > highs[:, -2]) * (ult[:, -1] <= ult[:, -2])
+        down_sent = (bear_div * (ult[:, -1] > 0.7)).reshape(-1, 1)
+
+        # Return the sentiments
+        side_sent = 1 - (up_sent + down_sent)
+        return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

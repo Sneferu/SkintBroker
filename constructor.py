@@ -36,6 +36,7 @@ net_types = {
         "donchian": models.technical.DonchianChannelBlock,
         "bollinger_breakout": models.technical.BollingerBreakoutBlock,
         "bollinger_bounce": models.technical.BollingerBounceBlock,
+        "ultimate": models.technical.UltimateOscillatorBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

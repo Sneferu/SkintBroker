@@ -101,6 +101,7 @@ class IntradayPresenter:
                 continue
             if feature == 'bollinger':
                 self._outputs.extend(['bollinger+', 'bollinger=', 'bollinger-'])
+                continue
 
             # Then add all others
             self._outputs.append(feature)
@@ -250,6 +251,8 @@ class IntradayPresenter:
                                                                 self.provider,
                                                                 30, 2)
                 datas.extend([b_top, b_mid, b_bottom])
+            elif feat == "ultimate":
+                datas.append(_to_intraday_ultimate(date, self.provider))
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -694,6 +697,32 @@ def _to_intraday_bollinger(date: pd.Timestamp, provider: providers.DataProvider,
     return nd.array((top / norm).values, utils.try_gpu(0)), \
            nd.array((middle / norm).values, utils.try_gpu(0)), \
            nd.array((bottom / norm).values, utils.try_gpu(0))
+
+def _to_intraday_ultimate(date: pd.Timestamp,
+                          provider: providers.DataProvider) -> nd.NDArray:
+    """
+    Returns the Ultimate Indicator for a data series for a given +date+ and
+    +provider+.
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Calculate the buying pressure and true range
+    prev_close = data.close.shift(periods=1, fill_value=data.close[0])
+    true_min = prev_close.where(prev_close < data.low, data.low)
+    true_max = prev_close.where(prev_close > data.high, data.high)
+    buying_pressure = data.close - true_min
+    true_range = true_max - true_min
+
+    # Generate rolling averages of buying pressure / true range for periods
+    # of lengths 7, 14, and 28
+    avg7 = buying_pressure.rolling(7).sum() / true_range.rolling(7).sum()
+    avg14 = buying_pressure.rolling(14).sum() / true_range.rolling(14).sum()
+    avg28 = buying_pressure.rolling(28).sum() / true_range.rolling(28).sum()
+
+    # Finally, combine them in a 4:2:1 ratio
+    ultimate = (4 * avg7 + 2 * avg14 + avg28) / 7
+    return nd.array(ultimate.values, utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:
