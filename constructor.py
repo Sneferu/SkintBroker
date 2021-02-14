@@ -37,6 +37,7 @@ net_types = {
         "bollinger_breakout": models.technical.BollingerBreakoutBlock,
         "bollinger_bounce": models.technical.BollingerBounceBlock,
         "ultimate": models.technical.UltimateOscillatorBlock,
+        "cci": models.technical.CCIBlock,
         "target": models.technical.TargetBlock,
         "concat": models.structural.ConcatenateNet
         }

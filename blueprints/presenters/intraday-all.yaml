@@ -28,4 +28,5 @@ params:
     dysart: true
     bollinger: true
     ultimate: true
+    cci: true
     target: false

@@ -253,6 +253,8 @@ class IntradayPresenter:
                 datas.extend([b_top, b_mid, b_bottom])
             elif feat == "ultimate":
                 datas.append(_to_intraday_ultimate(date, self.provider))
+            elif feat == "cci":
+                datas.append(_to_intraday_cci(date, self.provider))
             elif feat == "target":
                 datas.append(_to_intraday_target(date, self.provider,
                                                  self._lookahead,
@@ -723,6 +725,27 @@ def _to_intraday_ultimate(date: pd.Timestamp,
     # Finally, combine them in a 4:2:1 ratio
     ultimate = (4 * avg7 + 2 * avg14 + avg28) / 7
     return nd.array(ultimate.values, utils.try_gpu(0))
+
+def _to_intraday_cci(date: pd.Timestamp, provider: providers.DataProvider,
+                     period: int = 40) -> nd.NDArray:
+    """
+    Returns an ndarray consisting of the per-minute Commodity Channel
+    Index of a data series for a given +date+ and +provider+.
+    """
+    # First, get the data
+    data = _get_intraday_data(date, provider)
+
+    # Next, get the typical price
+    typical_price = (data.close + data.high + data.low) / 3
+
+    # Next, calculate the CCI
+    sma = typical_price.rolling(period).mean()
+    sma = sma.fillna(typical_price[0])
+    mad = (typical_price - sma).abs().rolling(period).mean()
+    cci = (typical_price - sma) / mad
+
+    # Return the CCI
+    return nd.array(cci.values, utils.try_gpu(0))
 
 def _to_intraday_target(date: pd.Timestamp, provider: providers.DataProvider,
                         offset: int, normalize: bool = True) -> nd.NDArray:

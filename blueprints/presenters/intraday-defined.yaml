@@ -28,4 +28,5 @@ params:
     dysart: false
     bollinger: false
     ultimate: false
+    cci: false
     target: false
