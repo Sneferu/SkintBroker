@@ -123,11 +123,14 @@ def main() -> None:
             model.initialize(save=model_cache, random_init=args.reinit)
 
             # Train the model for the specified number of epochs
-            training_loss, valid_loss, valid_success = model.train(args.train_epochs)
+            training_runs, valid_runs = model.train(args.train_epochs)
+            training_loss = [training.loss_mean for training in training_runs]
+            valid_loss = [valid.loss_mean for valid in valid_runs]
+            valid_success = [valid.success_mean for valid in valid_runs]
 
             # Save the model
             model.save(model_cache)
-            if len(valid_success) > 3:
+            if len(valid_runs) > 3:
                 success = sum(valid_success[-3:])/3
             else:
                 success = valid_success[-1]

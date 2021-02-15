@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import mxnet as mx
 
-from .. import presenters, utils
+from .. import presenters, record, utils
 
 from .loss import find_loss
 
@@ -71,10 +71,11 @@ class Model:
         """
 
     @abstractmethod
-    def train(self, epochs: int) -> Tuple[List[float], List[float], List[float]]:
+    def train(self, epochs: int) -> Tuple[List[record.RunRecord],
+                                          List[record.RunRecord]]:
         """
-        Trains the network for a number of epochs.  Returns the validation
-        loss after each epoch, and the percentage-wise success.
+        Trains the network for a number of epochs.  Returns a pair of record
+        lists - one for training runs and one for validation runs.
         """
 
     @abstractmethod
@@ -160,11 +161,13 @@ class SequentialModel:
         save_file = save/self.name
         self.net.save_parameters(str(save_file))
 
-    def train(self, epochs: int) -> Tuple[List[float], List[float], List[float]]:
+    def train(self, epochs: int) -> Tuple[List[record.RunRecord],
+                                          List[record.RunRecord]]:
         """
-        Trains the network for a number of epochs.  Returns the validation
-        loss after each epoch, and the percentage-wise success.
+        Trains the network for a number of epochs.  Returns a pair of record
+        lists - one for training runs and one for validation runs.
         """
+        training_runs, valid_runs = [], []
         # For each epoch, we generate random data batches.  The DailyDataLoader
         # generates a batch of set size, with samples drawn randomly WITH
         # replacement.  Thus, to simulate a typical epoch, we simply run enough
@@ -195,50 +198,38 @@ class SequentialModel:
         # the validation batch and return it.  Note that we define a special
         # _validate() function here to prevent having to duplicate load for the
         # trainable section.
-        def _validate() -> Tuple[float, float]:
+        def _validate() -> record.RunRecord:
             """
-            Runs the net on the validation batches.  Returns validation loss
-            and success.
+            Runs the net on the validation batches.  Returns a run record.
             """
+            rec = record.RunRecord("validation")
 
             # First, run the model on each validation batch
             val_batches = [self.presenters[0].get_validation_batch(batch_size) \
                            for _ in range(valid_batch_count)]
-            valid_loss, valid_success, valid_variance = 0, 0, 0
             print(f"Validating on {valid_batch_count} batches")
             for data_batch, target_batch in val_batches:
-                loss, success, variance = self._evaluate(self._format_input(data_batch),
-                                                         target_batch)
-                valid_loss += loss / batch_size
-                valid_success += success / batch_size
-                valid_variance += variance
+                run_rec = self._evaluate(self._format_input(data_batch),
+                                         target_batch)
+                rec += run_rec
 
-            # Calculate total loss, accounting for batch size
-            valid_loss /= valid_batch_count
-            valid_success /= valid_batch_count
-            valid_variance /= valid_batch_count
-            return valid_loss, valid_success, valid_variance
+            return rec
 
         if not self.net.trainable:
             # Validate several times, as there is no data from training.
-            v_successes, v_losses = [], []
             for i in range(epochs):
-                v_loss, v_success, variance = _validate()
-                v_losses.append(v_loss)
-                v_successes.append(v_success)
-                print(f"Success/variance {i}: {v_success}, {variance}")
-            return v_losses, v_losses, v_successes
+                rec = _validate()
+                valid_runs.append(rec)
+                print(f"Success/variance {i}: {rec.success_mean},"
+                      f" {rec.success_variance}")
+            return valid_runs, valid_runs
 
         # Initialize trainer
         trainer = mx.gluon.Trainer(self.net.collect_params(), 'adam',
                                    {'learning_rate': self.learning_rate})
 
         # For each data epoch: train, validate, and record
-        training_losses = []
-        valid_losses = []
-        valid_successes = []
         for epoch in range(epochs):
-            training_loss = 0
             print(f"Starting epoch {epoch}...")
             print(f"Training on {training_batch_count} batches")
 
@@ -251,24 +242,24 @@ class SequentialModel:
             for batch in range(training_batch_count):
                 data_batch, target_batch = \
                         self.presenters[0].get_training_batch(batch_size)
-                loss, success, variance = self._evaluate(self._format_input(data_batch),
-                                                         target_batch,
-                                                         trainer=trainer)
-                loss /= batch_size
-                success /= batch_size
+                run_rec = self._evaluate(self._format_input(data_batch),
+                                         target_batch,
+                                         trainer=trainer)
                 if self.verbose:
-                    print(f"E{epoch} B{batch}: Loss = {loss}, Success = {success}")
-                training_loss += loss
+                    print(f"E{epoch} B{batch}: Loss = {run_rec.loss_mean},"
+                          f" Success = {run_rec.success_mean},"
+                          f" Variance = {run_rec.success_variance}")
 
             # Validate
-            valid_loss, valid_success, variance = _validate()
-            print(f"Epoch {epoch} validation loss/variance: {valid_loss}, {variance}")
+            valid_rec = _validate()
+            print(f"E{epoch} Validation: Loss = {valid_rec.loss_mean},"
+                  f" Success = {valid_rec.success_mean},"
+                  f" Variance = {valid_rec.success_variance}")
 
-            training_losses.append(training_loss/training_batch_count)
-            valid_losses.append(valid_loss)
-            valid_successes.append(valid_success)
+            training_runs.append(run_rec)
+            valid_runs.append(valid_rec)
 
-        return training_losses, valid_losses, valid_successes
+        return training_runs, valid_runs
 
     def predict(self, time: pd.Timestamp) -> pd.DataFrame:
         """
@@ -337,10 +328,10 @@ class SequentialModel:
 
     def _evaluate(self, data: mx.nd.NDArray, target: mx.nd.NDArray,
                   trainer: Optional[mx.gluon.Trainer] = None) \
-            -> Tuple[float, float, float]:
+            -> record.RunRecord:
         """
         Runs a batch of +data+ and returns the total loss based on +targett+
-        predictions.  Returns the loss, success, and success variance.
+        predictions.  Returns a run record.
 
         If +trainer+, updates model parameters as well.
         """
@@ -379,7 +370,13 @@ class SequentialModel:
         target_array = target
         valid_loss, variance = self._success_loss(out, target[:, -1, :])
 
-        return loss, -valid_loss.asscalar(), variance.asscalar()
+
+        # Return a record
+        return record.RunRecord("training" if trainer else "validation",
+                                run_count = batch_size,
+                                loss_mean = loss / batch_size,
+                                success_mean = -valid_loss.asscalar() / batch_size,
+                                success_variance = variance.asscalar())
 
     def _format_input(self, array):
         """
