@@ -68,9 +68,7 @@ def get_gpu_count() -> int:
     """
     Returns the number of currently usable GPU's.
     """
-    return 1
-    # TODO update when 1.7.0 is available
-    # return mx.context.num_gpus()
+    return mx.context.num_gpus()
 
 
 def try_gpu(number: int):
