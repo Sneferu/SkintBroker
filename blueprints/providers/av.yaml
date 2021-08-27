@@ -2,7 +2,6 @@
 ---
 type: alphavantage
 params:
-  api_key: 8GI9AQIVOL143S4C
   cache: cache
   reqs_per_minute: 5
   local_cache_size: 10

@@ -7,6 +7,7 @@ defines methods by which market information can be requested and presented.
 
 from abc import abstractmethod
 from io import StringIO
+import os
 import pathlib
 import time
 from typing import Any, Dict
@@ -69,14 +70,13 @@ class AVDataProvider(DataProvider):
     """
 
     def __init__(self, ticker: str, *,
-                 api_key: int = 0, reqs_per_minute: int = 5,
-                 cache: str = "cache", local_cache_size: int = 10,
+                 reqs_per_minute: int = 5, cache: str = "cache",
+                 local_cache_size: int = 10,
                  **kwargs: Dict[str, Any]):
         """
-        Init function.  +api_key+ is the AlphaVantage API key needed to
-        request data, and +reqs_per_minute+ is the number of requests allowed
-        per minute.
+        Init function.
 
+        +reqs_per_minute+ is the number of requests allowed per minute.
         +ticker+ provides the ticker symbol for the underlying FD.
         +cache+ provides a directory which the DataProvider can use to
         organize data.
@@ -87,7 +87,6 @@ class AVDataProvider(DataProvider):
         given time, and will attempt the maximum number of accesses possible.
         """
         self.ticker = ticker
-        self.api_key = api_key
         self.reqs_per_minute = reqs_per_minute
         self.cache = pathlib.Path(cache)
         self.local_cache_size = local_cache_size
@@ -100,6 +99,12 @@ class AVDataProvider(DataProvider):
         if self.cache.exists() and not self.cache.is_dir():
             raise RuntimeError("Cache must be a directory")
         self.cache.mkdir(exist_ok=True, parents=True)
+
+        # Get AlphaVantage API key
+        self.api_key = os.environ.get("SKINTBROKER_AV_API_KEY")
+        if not self.api_key:
+            raise RuntimeError("No AlphaVantage API key detected - please set "
+                               "SKINTBROKER_AV_API_KEY")
 
     def _check_local_cache(self, filename: pathlib.Path):
         """
