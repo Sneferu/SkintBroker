@@ -105,7 +105,7 @@ class GFGLoss(GamblingLoss):
     return the variance.
     """
 
-    def __init__(self, output: str, corrective_l2=0.6, weight=None,
+    def __init__(self, output: str, corrective_l2=60, weight=None,
                  batch_axis=0, **kwargs):
         """
         Init function.  The +threshold+ parameter indicates the magnitude of
@@ -114,7 +114,7 @@ class GFGLoss(GamblingLoss):
         The +output+ parameter dictates the format of the prediction tensor.
         """
         super().__init__(output, weight=weight, batch_axis=batch_axis,
-                         include_variance=False, **kwargs)
+                         include_variance=True, **kwargs)
         self.corrective_l2 = corrective_l2
 
     def hybrid_forward(self, F, prediction, target):
@@ -139,9 +139,10 @@ class GFGLoss(GamblingLoss):
             return F.sum(gloss + closs)
         else:
             # Other implementations of Gambling Loss are already gradient-
-            # friendly
-            gfgloss, _ = super().hybrid_forward(F, prediction, target)
-            return gfgloss
+            # friendly.  However, we want to punish the model for high
+            # variance.  Thus, we add a small weighted variance component.
+            gfgloss, variance = super().hybrid_forward(F, prediction, target)
+            return gfgloss + self.corrective_l2 * variance
 
 
 def find_loss(loss: str, output: str) -> mx.gluon.loss.Loss:
