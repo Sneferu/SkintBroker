@@ -801,6 +801,96 @@ class CCIBlock(TechnicalBlock):
         return mx.nd.concat(up_sent, down_sent, side_sent, dim=1)
 
 
+class FibonacciBlock(TechnicalBlock):
+    """
+    Implementation of the On Balance Volume block per the mxnet framework.
+    """
+    # Only one public method is needed
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, features: List[List[str]], **kwargs: Dict[str, Any]):
+        """
+        Init function.
+        """
+        super().__init__(features, **kwargs)
+
+        if not 'open' in features[0] or not 'high' in features[0] \
+           or not 'low' in features[0]:
+            raise RuntimeError("Block requires the open, high, and low features")
+        self.open_index = features[0].index('open')
+        self.high_index = features[0].index('high')
+        self.low_index = features[0].index('low')
+
+    def forward(self, inputs):
+        """
+        Returns the outputs of the net.
+        """
+        # First, extract the features, denormalizing highs and lows
+        opens = inputs[:, :, self.open_index]
+        highs = inputs[:, :, self.high_index] * opens + opens
+        lows = inputs[:, :, self.low_index] * opens + opens
+
+        # Next, generate high and low masks.  The high needs to be placed
+        # between 0.1 and 0.5, while the low needs to be between 0.5 and
+        # 0.9, or vice versa.  Note that 'window' is kept separate from
+        # 'length', under the idea that in the future, smaller windows may
+        # be permitted.
+        length = highs.shape[1]
+        window = length
+        lead = length - window
+        start  = lead + (window // 10)
+        middle = lead + (window // 2)
+        end = lead + ((window * 9) // 10)
+
+        # The condition for a retracement is that either a) the high appears in
+        # the high mask, the low in the low mask, and the final open at a
+        # Fibonacci line between them, or b) the same but swap high and low
+        total_max = mx.nd.max(highs, axis=1).reshape(-1, 1)
+        total_min = mx.nd.min(lows, axis=1).reshape(-1, 1)
+        start_max = mx.nd.max(highs[:, start:middle], axis=1).reshape(-1, 1)
+        start_min = mx.nd.min(lows[:, start:middle], axis=1).reshape(-1, 1)
+        end_max = mx.nd.max(highs[:, middle:end], axis=1).reshape(-1, 1)
+        end_min = mx.nd.min(lows[:, middle:end], axis=1).reshape(-1, 1)
+        final = opens[:, -1].reshape(-1, 1)
+
+        # Set Fibonacci levels.  Note first that 50% is not based on a
+        # Fibonacci number, but seems to work in practice.  Not second that
+        # these are defined separately here so that in the future, they may
+        # be parameterized.
+        levels = [.236, .382, .5, .618, .786]
+        leeway = .03
+
+        # Detect bounces
+        bounce_up = (start_max == total_max) * (end_min == total_min)
+        bounce_down = (start_min == total_min) * (end_max == total_max)
+
+        # Determine when those bounces have reached a level
+        diff = total_max - total_min
+        up = mx.nd.zeros(diff.shape, ctx=inputs.context)
+        down = mx.nd.zeros(diff.shape, ctx=inputs.context)
+        side = mx.nd.ones(diff.shape, ctx=inputs.context)
+        zeros = mx.nd.zeros(diff.shape, ctx=inputs.context)
+        ones = mx.nd.ones(diff.shape, ctx=inputs.context)
+
+        for level in levels:
+            bottom = total_min + (diff * (level - leeway))
+            top = total_min + (diff * (level + leeway))
+
+            # Handle bounce down
+            up = mx.nd.where((bounce_down) * (bottom < final) * (top > final),
+                             ones,
+                             up)
+
+            # Handle bounce up
+            down = mx.nd.where((bounce_up) * (bottom < final) * (top > final),
+                             ones,
+                             down)
+
+        # Return the result
+        side = 1 - (up + down)
+        return mx.nd.concat(up, down, side, dim=1)
+
+
 class TargetBlock(TechnicalBlock):
     """
     Block for comparing predictions against the theoretical maximum.  Assumes

@@ -99,6 +99,11 @@ cci_net: &cci_net
   inputs:
     - <presenter>
 
+fibonacci_net: &fibonacci_net
+  type: fibonacci
+  inputs:
+    - <presenter>
+
 # Define a net containing all technical nets
 technical_nets: &nets
 
@@ -121,6 +126,7 @@ technical_nets: &nets
   bollinger_bounce: *bollinger_bounce_net
   ultimate: *ultimate_net
   cci: *cci_net
+  fibonacci: *fibonacci_net
 
   concat:
     type: concat
@@ -146,6 +152,7 @@ technical_nets: &nets
       - bollinger_bounce
       - ultimate
       - cci
+      - fibonacci
 
 # Next, define a standard model -----------------------------------------------
 
@@ -266,6 +273,11 @@ cci:
   <<: *basic_technical
   nets:
     cci: *cci_net
+
+fibonacci:
+  <<: *basic_technical
+  nets:
+    fibonacci: *fibonacci_net
 
 # A basic net which takes a concatenation of technical indicators as inputs
 # and runs them through a perceptron to output sentiment-style predictions
