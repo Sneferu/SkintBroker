@@ -42,8 +42,13 @@ def parse_input(args) -> Dict[str, Any]:
     """
     Returns the dictionary from a blueprint file based on +args+.
     """
+
     bp_dir = pathlib.Path(os.path.dirname(os.path.realpath(__file__)))/"blueprints"
-    return parser.parse_file(bp_dir/f"{args.blueprint_file}.yaml")[args.item]
+    bp_dict = parser.parse_file(bp_dir/f"{args.blueprint_file}.yaml")
+    if args.item:
+        return bp_dict[args.item]
+    else:
+        return bp_dict
 
 def main() -> None:
     """
