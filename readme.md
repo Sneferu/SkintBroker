@@ -28,7 +28,7 @@ Additionally, make sure you have a couple GB of disk space and a directory with 
 
 ### Command Line
 
-Skintbroker can be called like any other python module with a ```__main__,py``` - via the ```python -m ...``` command.  It has three major subcommands associated with it: data, model, and compare.  There is a set of flags applicable to all of these commands, as well as several associated specifically with each.
+SkintBroker can be called like any other python module with a ```__main__,py``` - via the ```python -m ...``` command.  It has three major subcommands associated with it: data, model, and compare.  There is a set of flags applicable to all of these commands, as well as several associated specifically with each.
 
 #### Global Flags
 
@@ -52,11 +52,11 @@ The '__data show__' command comes with the '__-t \<timestamp\>__' flag, which ta
 
 Examples:
 
-    python -m Skintbroker -c ~/my\_cache -s SPY -f providers/av data cache
+    python -m SkintBroker -c ~/my_cache -s SPY -f providers/av data cache
     # Caches all data avaiable to the default AlphaVantage provider for $SPY.  This may take some time.
     # See the Providers section for info on how to use the default provider.
 
-    python -m Skintbroker -c ~/my\_cache -s WFC -f provider/av data show -t 8/23/2021
+    python -m SkintBroker -c ~/my_cache -s WFC -f provider/av data show -t 8/23/2021
     # Displays the price movements for $WFC on 8/23/2021
 
 #### Model
@@ -73,11 +73,11 @@ The '__model predict__' command takes one flag: __-t \<timestamp\>__.  This flag
 
 Examples:
 
-    python -m Skintbroker -c ~/my\_cache -s SPY -f technical-all -i fibonacci model predict -t 8/23/2021
+    python -m SkintBroker -c ~/my_cache -s SPY -f technical-all -i fibonacci model predict -t 8/23/2021
     # Uses the Fibonacci Retracement technical indicator in the technical-all.yaml blueprint file to make
     # 10 minute predictions for 8/23/2021.
 
-    python -m Skintbroker -c ~/my\_cache -s WFC -f neural-simple -i textcnn model train -e 100 -r:
+    python -m SkintBroker -c ~/my_cache -s WFC -f neural-simple -i textcnn model train -e 100 -r
     # Reinitializes the parameters for the textcnn convolutional neural network model and retrains it for
     # 100 epochs.  When this is done, the 'model train' command can be used to make predictions with it.
 
@@ -141,7 +141,7 @@ Below are sections on how to extend Providers, Presenters, and Models so that th
 
 ### Adding Models
 
-Adding a model is fairly simple.  Simple extend the ```Net``` class in ```models/model.py```.  This class in turn extends the MXNet Block class, allowing it to be easily incorporated into the MXNet framework, but adds a couple Skintbroker specific methods to override:
+Adding a model is fairly simple.  Simple extend the ```Net``` class in ```models/model.py```.  This class in turn extends the MXNet Block class, allowing it to be easily incorporated into the MXNet framework, but adds a couple SkintBroker specific methods to override:
 
 
 ```features()```: This is the list of features output by this net.  It is useful when it feeds another net, so that mismatches in the feature set can be immediately detected.
