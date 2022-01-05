@@ -16,11 +16,13 @@ SkintBroker supports two operating modes.  In the first - command line - it take
 
 First things first, setup.  SkintBroker works pretty much out of the box, as long as you have the right modules installed.  These are:
 
-__mxnet 1.7.0__ (GPU Enabled Preferred)\
-__matplotlib 3.3.4__\
-__pandas 1.2.2__\
-__requests 2.25.1__\
-__PyYAML-5.4.1__
+__mxnet 1.9.0__ (GPU Enabled Preferred)\
+__pandas 1.3.5__\
+__requests 2.27.0__\
+__matplotlib 3.5.1__\
+__seaborn 0.11.2__\
+__PyQt5 5.12.2__\
+__PyYAML 6.0__
 
 I haven't tested newer versions of these packages, though SkintBroker doesn't leverage many arcane features outside of MXNet, so there shouldn't be too many problems upgrading.  It is, however, highly dependent on the ever-evolving MXNet package, so alter that version at your own risk.
 
