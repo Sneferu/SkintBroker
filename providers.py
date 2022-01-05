@@ -206,7 +206,7 @@ class AVDataProvider(DataProvider):
                 return frame
 
         # Update from remote
-        params = {"function": "TIME_SERIES_DAILY_ADJUSTED",
+        params = {"function": "TIME_SERIES_DAILY",
                   "symbol": self.ticker,
                   "outputsize": "full"}
         request_frame = self._api_request(**params)
